@@ -4,6 +4,9 @@
  */
 
 import { getPr, upsertPr, updatePr, getPrKey, type DiffSummary } from '../store/prs.js';
+import { runReview } from '../services/reviewer.js';
+import { postIssueComment } from '../services/github.js';
+import { reviewComment } from '../services/comments.js';
 
 interface PrPayload {
   action: 'opened' | 'synchronize' | 'closed';
@@ -69,6 +72,17 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
   });
 
   console.log(`[pr-event] PR ${prKey} opened by ${pr.user.login}, linked issue: ${linkedIssue ?? 'none'}`);
+
+  // Run AI review (non-blocking, falls back gracefully)
+  const prRecord = getPr(repoKey, prNumber);
+  if (prRecord) {
+    const review = await runReview(prRecord);
+    if (review) {
+      const comment = reviewComment(review);
+      await postIssueComment(repoKey, prNumber, comment);
+      console.log(`[pr-event] AI review posted on ${prKey}`);
+    }
+  }
 
   return { handled: true, prKey, linkedIssue };
 }

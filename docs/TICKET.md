@@ -453,7 +453,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P1
-- Status: TODO
+- Status: DONE
 - Acceptance Criteria:
   - PR receives structured “GitPay Review” comment
 - Dependencies: GP-061, GP-044
