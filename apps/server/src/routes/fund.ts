@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { keccak256, toHex } from 'viem';
+import { keccak256, toHex, type Address } from 'viem';
 import { requirePayment, type X402Request } from '../middleware/x402.js';
 import {
   getIssue,
@@ -8,6 +8,7 @@ import {
   markIssueFunded,
   type IssueRecord,
 } from '../store/issues.js';
+import { depositToEscrow, createEscrow } from '../services/escrow.js';
 
 const router = Router();
 
@@ -131,7 +132,7 @@ router.post(
     paymentMiddleware(req as X402Request, res, next);
   },
   // After payment verified
-  (req: X402Request & { issueData?: IssueRecord }, res) => {
+  async (req: X402Request & { issueData?: IssueRecord }, res) => {
     const issue = req.issueData;
     if (!issue) {
       res.status(500).json({ error: 'Issue data not found' });
@@ -144,33 +145,63 @@ router.post(
       return;
     }
 
-    // Compute escrow address and intent hash
-    const escrowAddress = computeEscrowAddress(
-      issue.repoKey,
-      issue.issueNumber,
-      issue.policyHash
-    );
+    // Compute repo key hash for escrow creation
+    const repoKeyHash = keccak256(toHex(issue.repoKey));
+    const policyHashHex = issue.policyHash as `0x${string}`;
+
+    // Create escrow via factory (or get deterministic address)
+    const { escrowAddress, txHash: createTxHash } = await createEscrow({
+      repoKeyHash,
+      issueNumber: BigInt(issue.issueNumber),
+      policyHash: policyHashHex,
+      asset: issue.asset as Address,
+      cap: BigInt(issue.bountyCap),
+      expiry: BigInt(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60), // 30 days
+      chainId: issue.chainId,
+    });
+
+    // Deposit funds into escrow
+    const depositResult = await depositToEscrow({
+      escrowAddress,
+      asset: issue.asset as Address,
+      amount: BigInt(issue.bountyCap),
+      chainId: issue.chainId,
+    });
+
+    if (!depositResult.success) {
+      res.status(500).json({
+        error: 'Escrow deposit failed',
+        details: depositResult.error,
+      });
+      return;
+    }
+
+    // Compute intent hash
     const intentHash = keccak256(
       toHex(`intent:${issue.repoKey}#${issue.issueNumber}:${receipt.paymentHash}`)
     );
 
-    // Mark issue as funded
+    // Mark issue as funded with deposit txHash
     const fundedIssue = markIssueFunded(
       issue.repoKey,
       issue.issueNumber,
       escrowAddress,
       intentHash,
-      receipt.txHash
+      depositResult.txHash
     );
 
     res.json({
       success: true,
-      message: 'Issue funded successfully',
+      message: 'Issue funded and deposited to escrow',
       issue: fundedIssue,
+      escrow: {
+        address: escrowAddress,
+        createTxHash,
+        depositTxHash: depositResult.txHash,
+      },
       receipt: {
         paymentHash: receipt.paymentHash,
         amount: receipt.amount,
-        txHash: receipt.txHash,
       },
     });
   }
