@@ -142,7 +142,7 @@ A ticket is DONE only if:
 
 - Type: Test
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Add comprehensive tests for:
     - cap/expiry enforcement

@@ -638,4 +638,320 @@ contract IssueEscrowTest is Test {
 
         assertEq(hash1, hash2, "hashCart should be deterministic");
     }
+
+    // =========================================================================
+    // GP-012: Additional failure case tests
+    // =========================================================================
+
+    function test_Release_RevertOnAmountExceedsCap() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap * 2); // Fund with more than cap
+
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        // Try to pay more than cap
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: intentHash,
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: cap + 1, // Exceeds cap!
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.AmountExceedsCap.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_Release_RevertOnInsufficientBalance() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, 10 * 1e6); // Only fund with 10 USDC
+
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        // Try to pay 50 USDC with only 10 in balance
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: intentHash,
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6, // More than balance
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.InsufficientBalance.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_Release_RevertOnPolicyMismatch() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap);
+
+        // Intent with different policy hash
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: keccak256("different-policy"), // Wrong policy!
+            nonce: 1
+        });
+
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: intentHash,
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.PolicyMismatch.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_Release_RevertOnChainMismatch() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap);
+
+        // Intent with wrong chain ID
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: 999, // Wrong chain!
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: intentHash,
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.ChainMismatch.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_Release_RevertOnRepoMismatch() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap);
+
+        // Intent with wrong repo
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: keccak256("other/repo"), // Wrong repo!
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: intentHash,
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.RepoMismatch.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_Release_RevertOnIssueMismatch() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap);
+
+        // Intent with wrong issue number
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: 999, // Wrong issue!
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: intentHash,
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.IssueMismatch.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_Factory_RevertOnInvalidAsset() public {
+        vm.expectRevert(IssueEscrowFactory.InvalidAsset.selector);
+        factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(0), // Invalid asset!
+            cap,
+            expiry
+        );
+    }
+
+    function test_Factory_RevertOnInvalidCap() public {
+        vm.expectRevert(IssueEscrowFactory.InvalidCap.selector);
+        factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            0, // Invalid cap!
+            expiry
+        );
+    }
+
+    function test_Factory_RevertOnInvalidExpiry() public {
+        vm.expectRevert(IssueEscrowFactory.InvalidExpiry.selector);
+        factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            block.timestamp // Invalid: already expired!
+        );
+    }
 }
