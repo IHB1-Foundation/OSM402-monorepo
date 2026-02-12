@@ -1,16 +1,22 @@
 /**
  * GitHub API client for posting comments and reading repo data.
- * Uses GITHUB_TOKEN or GITHUB_APP installation token.
+ * Uses GITHUB_TOKEN or GitHub App installation token.
  */
+
+import { getInstallationTokenForRepo } from './githubAppAuth.js';
 
 const GITHUB_API = 'https://api.github.com';
 
-function getToken(): string | undefined {
-  return process.env.GITHUB_TOKEN || process.env.GITHUB_APP_TOKEN;
+async function getToken(repoKey: string): Promise<string | undefined> {
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  if (process.env.GITHUB_APP_TOKEN) return process.env.GITHUB_APP_TOKEN;
+
+  const appToken = await getInstallationTokenForRepo(repoKey);
+  return appToken ?? undefined;
 }
 
-function headers(): Record<string, string> {
-  const token = getToken();
+async function headers(repoKey: string): Promise<Record<string, string>> {
+  const token = await getToken(repoKey);
   const h: Record<string, string> = {
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
@@ -27,7 +33,7 @@ export async function postIssueComment(
   issueNumber: number,
   body: string,
 ): Promise<boolean> {
-  const token = getToken();
+  const token = await getToken(repoKey);
   if (!token) {
     console.log(`[github] No token available. Would comment on ${repoKey}#${issueNumber}:`);
     console.log(`[github]   ${body.slice(0, 200)}...`);
@@ -37,7 +43,7 @@ export async function postIssueComment(
   const url = `${GITHUB_API}/repos/${repoKey}/issues/${issueNumber}/comments`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: headers(),
+    headers: await headers(repoKey),
     body: JSON.stringify({ body }),
   });
 
@@ -58,13 +64,13 @@ export async function fetchRepoFile(
   path: string,
   ref?: string,
 ): Promise<string | null> {
-  if (!getToken()) {
+  if (!(await getToken(repoKey))) {
     console.log(`[github] No token — cannot fetch ${repoKey}/${path}`);
     return null;
   }
 
   const url = `${GITHUB_API}/repos/${repoKey}/contents/${path}${ref ? `?ref=${ref}` : ''}`;
-  const res = await fetch(url, { headers: headers() });
+  const res = await fetch(url, { headers: await headers(repoKey) });
 
   if (!res.ok) {
     if (res.status === 404) {
@@ -89,7 +95,7 @@ export async function fetchPrFiles(
   repoKey: string,
   prNumber: number,
 ): Promise<string[]> {
-  if (!getToken()) {
+  if (!(await getToken(repoKey))) {
     console.log(`[github] No token — cannot fetch PR files for ${repoKey}#PR${prNumber}`);
     return [];
   }
@@ -98,7 +104,7 @@ export async function fetchPrFiles(
   let page = 1;
   while (true) {
     const url = `${GITHUB_API}/repos/${repoKey}/pulls/${prNumber}/files?per_page=100&page=${page}`;
-    const res = await fetch(url, { headers: headers() });
+    const res = await fetch(url, { headers: await headers(repoKey) });
     if (!res.ok) {
       console.error(`[github] Failed to fetch PR files: ${res.status}`);
       break;
@@ -121,7 +127,7 @@ export async function fetchCheckRuns(
   repoKey: string,
   sha: string,
 ): Promise<Record<string, string>> {
-  if (!getToken()) {
+  if (!(await getToken(repoKey))) {
     console.log(`[github] No token — cannot fetch check runs for ${repoKey}@${sha}`);
     return {};
   }
@@ -130,7 +136,7 @@ export async function fetchCheckRuns(
   let page = 1;
   while (true) {
     const url = `${GITHUB_API}/repos/${repoKey}/commits/${sha}/check-runs?per_page=100&page=${page}`;
-    const res = await fetch(url, { headers: headers() });
+    const res = await fetch(url, { headers: await headers(repoKey) });
     if (!res.ok) {
       console.error(`[github] Failed to fetch check runs: ${res.status}`);
       break;

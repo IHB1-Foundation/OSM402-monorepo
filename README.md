@@ -44,6 +44,19 @@ pnpm -r build
 pnpm dev --filter server
 ```
 
+### GitHub App (Webhook + Comments)
+
+For a real online GitHub demo, run the server locally and configure a GitHub App:
+
+- Create a GitHub App (Repository permissions: **Issues: Read & write**, **Pull requests: Read**, **Contents: Read**, **Checks: Read**)
+- Subscribe to webhook events: `issues`, `pull_request`, `issue_comment`
+- Set webhook URL to `https://<your-public-url>/api/webhooks/github` (use ngrok for local)
+- Set `.env`:
+  - `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PEM`, `GITHUB_WEBHOOK_SECRET`
+  - or set `GITHUB_TOKEN` as a simpler fallback
+
+The server will verify `X-Hub-Signature-256` against the raw webhook payload.
+
 ### Verify
 
 ```bash
