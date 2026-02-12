@@ -9,6 +9,9 @@ import {
   computeMergeShaHash,
   calculatePayout,
   getMaxPayout,
+  evaluateHold,
+  evaluateRiskFlags,
+  evaluateHoldWithRiskFlags,
 } from './index.js';
 
 const SAMPLE_POLICY = `
@@ -331,6 +334,147 @@ payout:
   fixedAmountUsd: 100
 `);
       expect(getMaxPayout(policy)).toBe(100);
+    });
+  });
+});
+
+describe('HOLD Rule Evaluator', () => {
+  describe('touchesPaths', () => {
+    it('should trigger HOLD when touching sensitive paths', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['.github/workflows/ci.yml', 'src/app.ts'],
+      });
+
+      expect(result.shouldHold).toBe(true);
+      expect(result.reasons).toHaveLength(1);
+      expect(result.reasons[0]).toContain('.github/workflows/ci.yml');
+    });
+
+    it('should not trigger when paths are safe', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['src/app.ts', 'src/utils.ts'],
+      });
+
+      expect(result.shouldHold).toBe(false);
+      expect(result.reasons).toHaveLength(0);
+    });
+
+    it('should trigger for package-lock.json', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['package-lock.json'],
+      });
+
+      expect(result.shouldHold).toBe(true);
+      expect(result.reasons[0]).toContain('package-lock.json');
+    });
+  });
+
+  describe('newDependencies', () => {
+    it('should trigger HOLD when new dependencies added', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['package.json'],
+        newDependencies: ['lodash', 'axios'],
+      });
+
+      expect(result.shouldHold).toBe(true);
+      expect(result.reasons.some((r) => r.includes('lodash'))).toBe(true);
+    });
+
+    it('should not trigger when no new dependencies', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['package.json'],
+        newDependencies: [],
+      });
+
+      expect(result.shouldHold).toBe(false);
+    });
+  });
+
+  describe('coverageDrop', () => {
+    it('should trigger HOLD when coverage drops beyond threshold', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['src/app.ts'],
+        coverageChange: -5, // 5% drop
+      });
+
+      expect(result.shouldHold).toBe(true);
+      expect(result.reasons.some((r) => r.includes('Coverage'))).toBe(true);
+    });
+
+    it('should not trigger when coverage drop is within threshold', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['src/app.ts'],
+        coverageChange: -1, // 1% drop, threshold is 2%
+      });
+
+      expect(result.shouldHold).toBe(false);
+    });
+
+    it('should not trigger when coverage increases', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHold(policy, {
+        filesChanged: ['src/app.ts'],
+        coverageChange: 5, // 5% increase
+      });
+
+      expect(result.shouldHold).toBe(false);
+    });
+  });
+
+  describe('evaluateRiskFlags', () => {
+    it('should return risk flag reasons', () => {
+      const reasons = evaluateRiskFlags(['auth-change', 'new-dependency']);
+
+      expect(reasons).toHaveLength(2);
+      expect(reasons[0]).toContain('auth-change');
+      expect(reasons[1]).toContain('new-dependency');
+    });
+
+    it('should return empty for no risk flags', () => {
+      const reasons = evaluateRiskFlags([]);
+      expect(reasons).toHaveLength(0);
+    });
+  });
+
+  describe('evaluateHoldWithRiskFlags', () => {
+    it('should combine policy and risk flag reasons', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = evaluateHoldWithRiskFlags(
+        policy,
+        {
+          filesChanged: ['.github/workflows/ci.yml'],
+        },
+        ['security-concern']
+      );
+
+      expect(result.shouldHold).toBe(true);
+      expect(result.reasons.length).toBeGreaterThan(1);
+    });
+  });
+
+  describe('No holdIf rules', () => {
+    it('should not trigger HOLD when no rules defined', () => {
+      const policy = parsePolicy(`
+version: 1
+payout:
+  mode: fixed
+  fixedAmountUsd: 10
+`);
+      const result = evaluateHold(policy, {
+        filesChanged: ['.github/workflows/ci.yml'],
+        newDependencies: ['malicious-package'],
+        coverageChange: -50,
+      });
+
+      expect(result.shouldHold).toBe(false);
+      expect(result.reasons).toHaveLength(0);
     });
   });
 });

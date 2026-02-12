@@ -11,3 +11,7 @@ export { computePolicyHash, computeRepoKeyHash, computeMergeShaHash } from './ha
 // Payout calculator
 export type { DiffSummary, PayoutResult } from './payout.js';
 export { calculatePayout, getMaxPayout } from './payout.js';
+
+// HOLD rule evaluator
+export type { PRMetadata, HoldResult } from './hold.js';
+export { evaluateHold, evaluateRiskFlags, evaluateHoldWithRiskFlags } from './hold.js';

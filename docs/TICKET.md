@@ -218,7 +218,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Evaluate HOLD conditions deterministically from policy and PR metadata.
 - Tasks:
