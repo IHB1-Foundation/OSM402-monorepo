@@ -510,3 +510,169 @@ A ticket is DONE only if:
 - Acceptance Criteria:
   - Base adapter remains default; SKALE adapter compiles and is selectable
 - Dependencies: GP-051
+
+---
+
+## EPIC 8 — Hackathon Readiness (SKALE Testnet, Real GitHub, Real Payout)
+
+### GP-080 — Fix webhook signature verification (raw body)
+
+- Type: Bugfix
+- Priority: P0
+- Status: TODO
+- Description:
+  - Make GitHub webhook signature verification correct for real GitHub deliveries.
+- Tasks:
+  - Capture raw request body (before JSON parsing) and use it for `X-Hub-Signature-256` verification.
+  - Ensure signature verification fails closed in production.
+  - Add test vectors (valid/invalid signature).
+- Acceptance Criteria:
+  - A real GitHub webhook with the configured secret is accepted (200).
+  - Any payload tampering causes 401.
+- Dependencies: GP-040
+
+### GP-081 — Protect internal endpoints (shared secret / auth)
+
+- Type: Security
+- Priority: P0
+- Status: TODO
+- Description:
+  - Prevent arbitrary callers from triggering funding/payout in public deployments.
+- Tasks:
+  - Implement `X-GitPay-Secret` (or similar) verification middleware.
+  - Apply to sensitive endpoints (at least `/api/fund`, `/api/payout/execute`).
+  - Document how GitHub Action supplies this secret.
+- Acceptance Criteria:
+  - Requests without the secret get 401/403.
+  - GitHub Action can still fund successfully when configured.
+- Dependencies: GP-031, GP-051
+
+### GP-082 — Capture contributor payout address from real GitHub flow
+
+- Type: Feature
+- Priority: P0
+- Status: TODO
+- Description:
+  - Populate `pr.contributorAddress` reliably so payout can auto-execute on merge.
+- Tasks:
+  - Decide and implement one (or more) supported inputs:
+    - PR body token (e.g. `gitpay:address 0x...`)
+    - PR comment command (e.g. `/gitpay address 0x...`)
+    - issue comment (if you prefer issue-centric)
+  - Add webhook handler(s) needed (`issue_comment.created`, `pull_request_review_comment.created`, etc.).
+  - Validate EVM address format and record it to PR store/DB.
+- Acceptance Criteria:
+  - A contributor can submit an address via GitHub UI and payout proceeds automatically post-merge.
+- Dependencies: GP-042, GP-043, GP-050
+
+### GP-083 — Real GitHub API integration for policy + checks + diff
+
+- Type: Feature
+- Priority: P0
+- Status: TODO
+- Description:
+  - Replace MVP stubs with real GitHub reads to improve “Commerce Realism” and “Ship-ability”.
+- Tasks:
+  - Load `.gitpay.yml` from repo content and compute `policyHash` (not default).
+  - Fetch PR changed file paths and check-run statuses (required-check gating).
+  - Use GitHub App installation token or `GITHUB_TOKEN` consistently (document both).
+- Acceptance Criteria:
+  - Payout amount and HOLD rules reflect the repo’s actual `.gitpay.yml`.
+  - Missing required checks reliably triggers HOLD.
+- Dependencies: GP-021, GP-023, GP-042, GP-043
+
+### GP-084 — Chain configuration: SKALE-first runtime config + explorer links
+
+- Type: Feature
+- Priority: P0
+- Status: TODO
+- Description:
+  - Make chain selection/config first-class so demo can run on SKALE testnet without Base-specific constants.
+- Tasks:
+  - Centralize chain config (chainName/chainId/rpc/explorer/asset/factory).
+  - Update comments to use chain-specific explorer base (not BaseSepolia hardcode).
+  - Ensure server can run with `CHAIN_NAME=skale` and the right RPC/IDs.
+- Acceptance Criteria:
+  - All chain IDs/addresses/explorer links are correct for the active chain.
+- Dependencies: GP-073
+
+### GP-085 — SKALE testnet deployment + registry
+
+- Type: Infra
+- Priority: P0
+- Status: TODO
+- Description:
+  - Enable reproducible SKALE testnet deployments and address recording.
+- Tasks:
+  - Add `deploy:skale-<network>` scripts (Foundry) and an address registry JSON under `apps/server/config/chains/`.
+  - Document the chosen SKALE testnet (RPC + chainId + explorer).
+  - (If needed) deploy a demo ERC20 (MockUSDC) on SKALE testnet and record address.
+- Acceptance Criteria:
+  - One command deploys contracts to the chosen SKALE testnet and prints/records addresses.
+- Dependencies: GP-013
+
+### GP-086 — Real onchain escrow lifecycle on SKALE testnet
+
+- Type: Feature
+- Priority: P0
+- Status: TODO
+- Description:
+  - Make “fund → escrow deposit → merge → release” execute on SKALE testnet with real txs.
+- Tasks:
+  - Implement factory create/get escrow (idempotent).
+  - Implement ERC20 deposit to escrow (funder → escrow).
+  - Implement `escrow.release(...)` with real Intent/Cart signatures.
+  - Verify `Released` event and record txHash.
+- Acceptance Criteria:
+  - Explorer shows escrow funded and `Released` emitted once per issue payout.
+  - Retries/webhook duplicates never double-release.
+- Dependencies: GP-010, GP-020, GP-031, GP-050, GP-051, GP-052, GP-084, GP-085
+
+### GP-087 — Real x402 verification (bind HTTP payment proof to onchain tx)
+
+- Type: Feature
+- Priority: P1
+- Status: TODO
+- Description:
+  - Replace mock x402 acceptance with verifiable proofs suitable for judging “Commerce Realism”.
+- Tasks:
+  - Define `X-Payment` payload format that includes an onchain txHash (or signature) on SKALE.
+  - Verify receipt by fetching tx/receipt and confirming:
+    - chainId matches
+    - asset and amount match
+    - transfer recipient is the escrow
+  - Keep mock mode behind a flag for local-only.
+- Acceptance Criteria:
+  - `/api/fund` only marks FUNDED when an onchain transfer proof is valid.
+- Dependencies: GP-030, GP-032, GP-084, GP-086
+
+### GP-088 — Persistence and robustness (Prisma + SQLite)
+
+- Type: Infra
+- Priority: P1
+- Status: TODO
+- Description:
+  - Replace in-memory stores so restarts don’t lose state and idempotency is durable.
+- Tasks:
+  - Add Prisma schema for issues/PRs/payouts/events with unique constraints.
+  - Migrate stores to DB-backed implementations.
+  - Add migrations + local dev bootstrap.
+- Acceptance Criteria:
+  - Restarting the server does not lose funded/payout state.
+  - Uniqueness guarantees remain enforced at DB level.
+- Dependencies: GP-052
+
+### GP-089 — Presentation polish: single-run demo path
+
+- Type: Docs
+- Priority: P1
+- Status: TODO
+- Description:
+  - Make the demo flow easy to repeat and hard to break under time pressure.
+- Tasks:
+  - Add a “demo checklist” (what to prepare on GitHub + SKALE).
+  - Add a single “happy path” script (commands + expected outputs + fallback plan).
+  - Include judging-criteria mapping (AI readiness / realism / partner integration).
+- Acceptance Criteria:
+  - A new machine can reproduce the demo in <15 minutes with clear steps.
+- Dependencies: GP-071, GP-072, GP-086, GP-087
