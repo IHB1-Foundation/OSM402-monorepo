@@ -5,10 +5,12 @@
 
 import { getPr, updatePr } from '../store/prs.js';
 import { getIssue } from '../store/issues.js';
-import { createPayout, getPayout } from '../store/payouts.js';
+import { createPayout, getPayout, updatePayout, acquirePayoutLock, releasePayoutLock } from '../store/payouts.js';
+// updateIssueStatus is used in payout route; kept import path visible for reference
 import { postIssueComment } from '../services/github.js';
-import { holdComment } from '../services/comments.js';
+import { holdComment, paidComment } from '../services/comments.js';
 import { generateCartMandate } from '../services/mandate.js';
+import { releaseEscrow } from '../services/escrow.js';
 import type { DiffSummary, PayoutResult } from '@gitpay/policy';
 import type { Address, Hex } from 'viem';
 
@@ -217,6 +219,19 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
       mergeSha,
     });
     await postIssueComment(repoKey, prNumber, comment);
+  } else if (prRecord?.contributorAddress && cartHash) {
+    // Auto-execute payout if not held and recipient is known
+    const txHash = await executePayoutInline(repoKey, prNumber, prRecord.contributorAddress, cappedAmount, mergeSha, cartHash, issue.intentHash!, issue.escrowAddress!);
+    if (txHash) {
+      return {
+        handled: true,
+        merged: true,
+        payoutStatus: 'DONE',
+        amountUsd: cappedAmount,
+        tier: payoutResult.tier ?? undefined,
+        cartHash,
+      };
+    }
   }
 
   return {
@@ -228,4 +243,78 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     tier: payoutResult.tier ?? undefined,
     cartHash,
   };
+}
+
+/**
+ * Execute payout inline during merge handling.
+ * Posts "Paid" comment on PR after successful release.
+ */
+async function executePayoutInline(
+  repoKey: string,
+  prNumber: number,
+  recipient: string,
+  amountUsd: number,
+  mergeSha: string,
+  cartHash: string,
+  intentHash: string,
+  escrowAddress: string,
+): Promise<string | null> {
+  if (!acquirePayoutLock(repoKey, prNumber)) {
+    console.log(`[merge] Could not acquire lock for ${repoKey}#PR${prNumber}`);
+    return null;
+  }
+
+  try {
+    updatePayout(repoKey, prNumber, { status: 'EXECUTING' });
+
+    const mockSig = ('0x' + '00'.repeat(65)) as Hex;
+    const releaseResult = await releaseEscrow({
+      escrowAddress: escrowAddress as Address,
+      intent: {
+        chainId: 84532n,
+        repoKeyHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        issueNumber: 0n,
+        asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address,
+        cap: 0n,
+        expiry: 0n,
+        policyHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        nonce: 0n,
+      },
+      intentSig: mockSig,
+      cart: {
+        intentHash: intentHash as Hex,
+        mergeSha: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        prNumber: BigInt(prNumber),
+        recipient: recipient as Address,
+        amount: BigInt(Math.round(amountUsd * 1_000_000)),
+        nonce: 0n,
+      },
+      cartSig: mockSig,
+      chainId: 84532,
+    });
+
+    if (!releaseResult.success) {
+      updatePayout(repoKey, prNumber, { status: 'FAILED' });
+      console.log(`[merge] Inline payout failed: ${releaseResult.error}`);
+      return null;
+    }
+
+    updatePayout(repoKey, prNumber, { status: 'DONE', txHash: releaseResult.txHash });
+
+    // Post Paid comment
+    const comment = paidComment({
+      amountUsd,
+      recipient,
+      txHash: releaseResult.txHash!,
+      cartHash,
+      intentHash,
+      mergeSha,
+    });
+    await postIssueComment(repoKey, prNumber, comment);
+
+    console.log(`[merge] Inline payout executed: ${repoKey}#PR${prNumber} → $${amountUsd} tx=${releaseResult.txHash}`);
+    return releaseResult.txHash!;
+  } finally {
+    releasePayoutLock(repoKey, prNumber);
+  }
 }

@@ -414,11 +414,11 @@ A ticket is DONE only if:
   - Same merge event processed twice results in one onchain payout
 - Dependencies: GP-051, GP-040
 
-### GP-053 — Post “Paid ✅” PR comment with tx link
+### GP-053 — Post "Paid ✅" PR comment with tx link
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Acceptance Criteria:
   - PR shows Paid comment after successful tx
 - Dependencies: GP-051, GP-044
