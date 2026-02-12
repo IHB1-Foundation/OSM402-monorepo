@@ -495,7 +495,7 @@ A ticket is DONE only if:
 
 - Type: Docs
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Acceptance Criteria:
   - Fresh setup instructions work on a new machine
 - Dependencies: GP-071
