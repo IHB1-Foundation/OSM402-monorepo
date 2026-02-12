@@ -8,20 +8,14 @@ import { computeMergeShaHash } from '@gitpay/policy';
 import type { Address, Hex } from 'viem';
 import { activeChain } from '../config/chains.js';
 
-// Global nonce counter (in production, use DB-backed nonce)
-let cartNonce = 0n;
-
-function nextNonce(): bigint {
-  return cartNonce++;
-}
-
 export interface CartMandateParams {
   intentHash: Hex;
   mergeSha: string; // raw git SHA (40 hex chars)
   prNumber: number;
   recipient: Address;
   amountRaw: bigint; // USDC units (6 decimals)
-  escrowAddress?: Address;
+  escrowAddress: Address;
+  nonce?: bigint;
 }
 
 export interface CartMandateResult {
@@ -43,10 +37,10 @@ export function generateCartMandate(params: CartMandateParams): CartMandateResul
     prNumber: params.prNumber,
     recipient: params.recipient,
     amount: params.amountRaw,
-    nonce: nextNonce(),
+    nonce: params.nonce ?? 0n,
   });
 
-  const verifyingContract = params.escrowAddress || activeChain.factoryAddress;
+  const verifyingContract = params.escrowAddress;
   const chainId = BigInt(activeChain.chainId);
   const cartHash = hashCart(cart, verifyingContract, chainId);
 

@@ -14,6 +14,7 @@ import { releaseEscrow } from '../services/escrow.js';
 import { generateCartMandate } from '../services/mandate.js';
 import { postIssueComment } from '../services/github.js';
 import { paidComment } from '../services/comments.js';
+import { buildReleaseForPayout } from '../services/releaseConfig.js';
 
 const router: ExpressRouter = Router();
 
@@ -91,32 +92,31 @@ router.post('/execute', async (req: Request, res: Response) => {
     updatePayout(repoKey, prNumber, { cartHash });
   }
 
-  // Call escrow.release()
-  // In mock mode, intentSig and cartSig are placeholders
-  const mockSig = '0x' + '00'.repeat(65) as Hex;
+  let built;
+  try {
+    built = await buildReleaseForPayout({
+      issue,
+      payout,
+      recipient: payout.recipient as Address,
+    });
+  } catch (err) {
+    updatePayout(repoKey, prNumber, { status: 'FAILED' });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: 'Failed to build release mandates', details: msg });
+    return;
+  }
+
+  updatePayout(repoKey, prNumber, {
+    cartHash: built.cartHash,
+    intentHash: built.intentHash,
+  });
 
   const releaseResult = await releaseEscrow({
     escrowAddress: issue.escrowAddress as Address,
-    intent: {
-      chainId: BigInt(issue.chainId),
-      repoKeyHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
-      issueNumber: BigInt(issue.issueNumber),
-      asset: issue.asset as Address,
-      cap: BigInt(issue.bountyCap),
-      expiry: BigInt(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60),
-      policyHash: issue.policyHash as Hex,
-      nonce: 0n,
-    },
-    intentSig: mockSig,
-    cart: {
-      intentHash: issue.intentHash as Hex,
-      mergeSha: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
-      prNumber: BigInt(prNumber),
-      recipient: payout.recipient as Address,
-      amount: BigInt(payout.amountRaw || '0'),
-      nonce: 0n,
-    },
-    cartSig: mockSig,
+    intent: built.intent,
+    intentSig: built.intentSig,
+    cart: built.cart,
+    cartSig: built.cartSig,
     chainId: issue.chainId,
   });
 
@@ -140,8 +140,8 @@ router.post('/execute', async (req: Request, res: Response) => {
     amountUsd: payout.amountUsd,
     recipient: payout.recipient,
     txHash: releaseResult.txHash!,
-    cartHash: cartHash!,
-    intentHash: issue.intentHash,
+    cartHash: built.cartHash,
+    intentHash: built.intentHash,
     mergeSha: payout.mergeSha,
   });
   await postIssueComment(repoKey, prNumber, comment);
