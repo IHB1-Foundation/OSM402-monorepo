@@ -38,7 +38,7 @@ app.get('/api/health', (_req, res) => {
 app.post(
   '/api/x402-test',
   requirePayment({
-    amount: 1000000n, // 1 USDC (6 decimals)
+    amount: 1n, // 1 base unit of the active asset
     asset: activeChain.asset,
     chainId: activeChain.chainId,
     recipient: '0x0000000000000000000000000000000000000000', // Placeholder

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Router as ExpressRouter } from 'express';
 import { z } from 'zod';
-import { keccak256, toHex, type Address } from 'viem';
+import { keccak256, toHex, type Address, parseUnits } from 'viem';
 import { createIntent, hashIntent } from '@gitpay/mandates';
 import { requirePayment, type X402Request } from '../middleware/x402.js';
 import {
@@ -26,11 +26,11 @@ const FundRequestSchema = z.object({
 });
 
 /**
- * Parse bounty amount from label (e.g., "bounty:$10" -> 10_000_000 USDC units)
+ * Parse bounty amount from label (e.g., "bounty:$10" -> base units for active asset)
  */
 function parseBountyLabel(bountyCapUsd: number): bigint {
-  // Convert USD to USDC smallest unit (6 decimals)
-  return BigInt(Math.round(bountyCapUsd * 1_000_000));
+  // For demo: interpret "$X" as "X <asset>" and convert to base units using configured decimals.
+  return parseUnits(String(bountyCapUsd), activeChain.assetDecimals);
 }
 
 /**

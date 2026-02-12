@@ -12,7 +12,7 @@ import { generateCartMandate } from '../services/mandate.js';
 import { releaseEscrow } from '../services/escrow.js';
 import { buildReleaseForPayout } from '../services/releaseConfig.js';
 import type { DiffSummary, PayoutResult, Policy } from '@gitpay/policy';
-import type { Address, Hex } from 'viem';
+import { formatUnits, parseUnits, type Address, type Hex } from 'viem';
 
 interface PrClosedPayload {
   action: 'closed';
@@ -59,7 +59,7 @@ function buildDefaultPolicy(issue: IssueForPolicy): Policy {
     version: 1,
     payout: {
       mode: 'fixed' as const,
-      fixedAmountUsd: parseFloat(issue.bountyCap) / 1_000_000,
+      fixedAmountUsd: parseFloat(formatUnits(BigInt(issue.bountyCap), activeChain.assetDecimals)),
     },
     holdIf: [
       {
@@ -231,12 +231,14 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     }
   }
 
-  // Cap payout at issue bounty cap
-  const cappedAmount = Math.min(payoutResult.amountUsd, parseFloat(issue.bountyCap) / 1_000_000);
+  // Cap payout at issue bounty cap (demo: treat "USD" amount as token amount)
+  const issueCap = parseFloat(formatUnits(BigInt(issue.bountyCap), activeChain.assetDecimals));
+  const cappedAmount = Math.min(payoutResult.amountUsd, issueCap);
 
   // Generate Cart mandate if not held
   let cartHash: string | undefined;
-  const amountRaw = BigInt(Math.round(cappedAmount * 1_000_000));
+  const maxDecimals = Math.min(6, activeChain.assetDecimals);
+  const amountRaw = parseUnits(String(cappedAmount.toFixed(maxDecimals)), activeChain.assetDecimals);
 
   if (!holdResult.shouldHold && issue.intentHash && issue.escrowAddress && prRecord?.contributorAddress) {
     const cartResult = generateCartMandate({

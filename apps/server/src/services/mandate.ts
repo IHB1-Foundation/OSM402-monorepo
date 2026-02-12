@@ -13,7 +13,7 @@ export interface CartMandateParams {
   mergeSha: string; // raw git SHA (40 hex chars)
   prNumber: number;
   recipient: Address;
-  amountRaw: bigint; // USDC units (6 decimals)
+  amountRaw: bigint; // asset base units
   escrowAddress: Address;
   nonce?: bigint;
 }

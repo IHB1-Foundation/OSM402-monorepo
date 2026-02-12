@@ -3,7 +3,7 @@
  * Parses bounty label, creates issue record, posts GitHub comment.
  */
 
-import { keccak256, toHex, type Address } from 'viem';
+import { keccak256, toHex, type Address, parseUnits } from 'viem';
 import { getIssue, upsertIssue } from '../store/issues.js';
 import { predictEscrowAddress } from '../services/escrow.js';
 import { postIssueComment } from '../services/github.js';
@@ -51,8 +51,8 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload): Promise<
     return { handled: true, issueKey, bountyCapUsd, status: 'already_funded' };
   }
 
-  // Convert USD to USDC units (6 decimals)
-  const bountyAmount = BigInt(Math.round(bountyCapUsd * 1_000_000));
+  // Convert label amount to active asset base units
+  const bountyAmount = parseUnits(String(bountyCapUsd), activeChain.assetDecimals);
   const policyHash = keccak256(toHex('default-policy'));
   const expiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
   const createdAt = new Date();
