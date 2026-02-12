@@ -1,6 +1,7 @@
 # TICKET.md
 
 ## Ticket Workflow
+
 - Status values: `TODO` → `IN_PROGRESS` → `DONE`
 - Work strictly in ticket order unless a dependency requires otherwise.
 - Each ticket must include:
@@ -13,7 +14,9 @@
 ---
 
 ## Definition of Done (DoD)
+
 A ticket is DONE only if:
+
 - Acceptance criteria are met.
 - Code is linted and tests pass (or a documented reason exists).
 - Required docs/config are updated.
@@ -24,6 +27,7 @@ A ticket is DONE only if:
 ## EPIC 0 — Repo Scaffold and Tooling
 
 ### GP-001 — Create monorepo skeleton
+
 - Type: Infra
 - Priority: P0
 - Status: DONE
@@ -39,9 +43,10 @@ A ticket is DONE only if:
 - Dependencies: None
 
 ### GP-002 — Lint/format/typecheck baseline
+
 - Type: Infra
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Add ESLint, Prettier, TypeScript configs shared across packages.
 - Tasks:
@@ -54,6 +59,7 @@ A ticket is DONE only if:
 - Dependencies: GP-001
 
 ### GP-003 — Contracts toolchain setup
+
 - Type: Infra
 - Priority: P0
 - Status: TODO
@@ -68,6 +74,7 @@ A ticket is DONE only if:
 - Dependencies: GP-001
 
 ### GP-004 — Server app skeleton
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -82,6 +89,7 @@ A ticket is DONE only if:
 - Dependencies: GP-001, GP-002
 
 ### GP-005 — GitHub Action skeleton
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -99,6 +107,7 @@ A ticket is DONE only if:
 ## EPIC 1 — Onchain Escrow Contracts
 
 ### GP-010 — Implement IssueEscrowFactory and IssueEscrow
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -115,6 +124,7 @@ A ticket is DONE only if:
 - Dependencies: GP-003
 
 ### GP-011 — Implement EIP-712 mandate verification (Solidity)
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -129,6 +139,7 @@ A ticket is DONE only if:
 - Dependencies: GP-010
 
 ### GP-012 — Contract unit tests (escrow + mandates)
+
 - Type: Test
 - Priority: P0
 - Status: TODO
@@ -143,6 +154,7 @@ A ticket is DONE only if:
 - Dependencies: GP-010, GP-011
 
 ### GP-013 — Deployment scripts + addresses registry
+
 - Type: Infra
 - Priority: P0
 - Status: TODO
@@ -160,6 +172,7 @@ A ticket is DONE only if:
 ## EPIC 2 — Policy Engine and Mandates (TypeScript)
 
 ### GP-020 — Mandate schemas + hashing (TypeScript)
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -174,6 +187,7 @@ A ticket is DONE only if:
 - Dependencies: GP-011
 
 ### GP-021 — Parse `.gitpay.yml` and compute policyHash
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -187,6 +201,7 @@ A ticket is DONE only if:
 - Dependencies: GP-020
 
 ### GP-022 — Deterministic payout calculator
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -200,6 +215,7 @@ A ticket is DONE only if:
 - Dependencies: GP-021
 
 ### GP-023 — HOLD rule evaluator
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -217,6 +233,7 @@ A ticket is DONE only if:
 ## EPIC 3 — x402 Funding (HTTP 402)
 
 ### GP-030 — Add x402 middleware (server)
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -233,6 +250,7 @@ A ticket is DONE only if:
 - Dependencies: GP-004
 
 ### GP-031 — Implement `/api/fund` endpoint
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -249,6 +267,7 @@ A ticket is DONE only if:
 - Dependencies: GP-030, GP-013, GP-021
 
 ### GP-032 — Deposit funds into escrow after x402 payment
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -264,6 +283,7 @@ A ticket is DONE only if:
 - Dependencies: GP-031
 
 ### GP-033 — GitHub Action: fund via x402
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -281,6 +301,7 @@ A ticket is DONE only if:
 ## EPIC 4 — GitHub App / Webhooks / Comments
 
 ### GP-040 — Webhook endpoint + signature verification
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -295,6 +316,7 @@ A ticket is DONE only if:
 - Dependencies: GP-004
 
 ### GP-041 — Handle `issues.labeled` → trigger funding flow
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -309,6 +331,7 @@ A ticket is DONE only if:
 - Dependencies: GP-040, GP-031
 
 ### GP-042 — Handle PR events and store PR metadata
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -321,6 +344,7 @@ A ticket is DONE only if:
 - Dependencies: GP-040
 
 ### GP-043 — Merge detection and required-check gating
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -335,6 +359,7 @@ A ticket is DONE only if:
 - Dependencies: GP-040, GP-022, GP-023
 
 ### GP-044 — GitHub comments: Funded / Paid / HOLD
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -349,6 +374,7 @@ A ticket is DONE only if:
 ## EPIC 5 — Payout Execution
 
 ### GP-050 — Generate Cart mandate on merge
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -363,6 +389,7 @@ A ticket is DONE only if:
 - Dependencies: GP-020, GP-043
 
 ### GP-051 — Execute `escrow.release(...)` and record tx
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -374,6 +401,7 @@ A ticket is DONE only if:
 - Dependencies: GP-050, GP-010, GP-012
 
 ### GP-052 — Idempotency and replay safety in server pipeline
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -387,6 +415,7 @@ A ticket is DONE only if:
 - Dependencies: GP-051, GP-040
 
 ### GP-053 — Post “Paid ✅” PR comment with tx link
+
 - Type: Feature
 - Priority: P0
 - Status: TODO
@@ -399,6 +428,7 @@ A ticket is DONE only if:
 ## EPIC 6 — Gemini Reviewer
 
 ### GP-060 — Gemini client + strict JSON schema
+
 - Type: Feature
 - Priority: P1
 - Status: TODO
@@ -409,6 +439,7 @@ A ticket is DONE only if:
 - Dependencies: GP-004
 
 ### GP-061 — PR diff summarizer and prompt builder
+
 - Type: Feature
 - Priority: P1
 - Status: TODO
@@ -419,6 +450,7 @@ A ticket is DONE only if:
 - Dependencies: GP-060, GP-042
 
 ### GP-062 — Post AI review comment on PR
+
 - Type: Feature
 - Priority: P1
 - Status: TODO
@@ -427,6 +459,7 @@ A ticket is DONE only if:
 - Dependencies: GP-061, GP-044
 
 ### GP-063 — HOLD mapping from riskFlags
+
 - Type: Feature
 - Priority: P1
 - Status: TODO
@@ -439,6 +472,7 @@ A ticket is DONE only if:
 ## EPIC 7 — Demo, Docs, and Optional SKALE Mode
 
 ### GP-070 — Example repo + `.gitpay.yml` template
+
 - Type: Docs
 - Priority: P0
 - Status: TODO
@@ -447,6 +481,7 @@ A ticket is DONE only if:
 - Dependencies: GP-021
 
 ### GP-071 — End-to-end demo script
+
 - Type: Docs
 - Priority: P0
 - Status: TODO
@@ -457,6 +492,7 @@ A ticket is DONE only if:
 - Dependencies: GP-053
 
 ### GP-072 — README Quickstart
+
 - Type: Docs
 - Priority: P0
 - Status: TODO
@@ -465,6 +501,7 @@ A ticket is DONE only if:
 - Dependencies: GP-071
 
 ### GP-073 — SKALE adapter scaffold (optional)
+
 - Type: Feature
 - Priority: P2
 - Status: TODO

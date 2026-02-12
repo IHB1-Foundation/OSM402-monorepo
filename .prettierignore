@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+out/
+coverage/
+pnpm-lock.yaml
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+*.sol

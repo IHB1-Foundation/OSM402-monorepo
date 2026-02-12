@@ -292,8 +292,8 @@ payout:
       amountUsd: 1
       match:
         onlyPaths:
-          - "README.md"
-          - "docs/**"
+          - 'README.md'
+          - 'docs/**'
     - name: simple_fix
       amountUsd: 5
       match:
@@ -304,24 +304,24 @@ payout:
       amountUsd: 50
       match:
         anyPaths:
-          - "src/auth/**"
-          - "src/crypto/**"
-          - "security/**"
+          - 'src/auth/**'
+          - 'src/crypto/**'
+          - 'security/**'
 
 holdIf:
   - rule: touchesPaths
     any:
-      - ".github/workflows/**"
-      - "package-lock.json"
-      - "pnpm-lock.yaml"
-      - "yarn.lock"
+      - '.github/workflows/**'
+      - 'package-lock.json'
+      - 'pnpm-lock.yaml'
+      - 'yarn.lock'
   - rule: newDependencies
   - rule: coverageDrop
     gtPercent: 2
 
 addressClaim:
   mode: pr_comment
-  command: "/gitpay address"
+  command: '/gitpay address'
 ```
 
 ### 10.3 Deterministic policy hash
