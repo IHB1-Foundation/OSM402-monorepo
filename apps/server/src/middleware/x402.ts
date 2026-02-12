@@ -1,4 +1,11 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
+import {
+  createPublicClient,
+  http,
+  parseAbi,
+  decodeEventLog,
+  type Hex,
+} from 'viem';
 import { activeChain } from '../config/chains.js';
 
 /**
@@ -38,13 +45,17 @@ export interface X402Request extends Request {
  * x402 middleware configuration
  */
 export interface X402Config {
-  mockMode: boolean; // Use mock verification for local dev
+  mockMode: boolean;
   verifyPayment?: (paymentHeader: string) => Promise<PaymentReceipt | null>;
 }
 
 const DEFAULT_CONFIG: X402Config = {
   mockMode: process.env.X402_MOCK_MODE === 'true',
 };
+
+const ERC20_TRANSFER_ABI = parseAbi([
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+]);
 
 /**
  * Build 402 Payment Required response payload
@@ -65,7 +76,7 @@ function buildPaymentRequiredPayload(req: PaymentRequirement) {
       instructions: {
         type: 'x402',
         header: 'X-Payment',
-        format: 'base64-encoded payment proof',
+        format: 'base64 JSON: { txHash, chainId, asset, amount, payer }',
       },
     },
   };
@@ -75,9 +86,7 @@ function buildPaymentRequiredPayload(req: PaymentRequirement) {
  * Mock payment verification (for local development)
  */
 async function mockVerifyPayment(paymentHeader: string): Promise<PaymentReceipt | null> {
-  // In mock mode, accept any payment header as valid
   try {
-    // Try to parse as JSON
     const data = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
     return {
       paymentHash: data.paymentHash || `mock-${Date.now()}`,
@@ -88,7 +97,6 @@ async function mockVerifyPayment(paymentHeader: string): Promise<PaymentReceipt 
       txHash: data.txHash,
     };
   } catch {
-    // If parsing fails, generate a mock receipt
     return {
       paymentHash: `mock-${Date.now()}`,
       amount: '0',
@@ -96,6 +104,94 @@ async function mockVerifyPayment(paymentHeader: string): Promise<PaymentReceipt 
       chainId: activeChain.chainId,
       payer: '0x0000000000000000000000000000000000000000',
     };
+  }
+}
+
+/**
+ * Real x402 verification: fetch onchain tx receipt and confirm
+ * that an ERC20 Transfer event matches the required payment.
+ */
+async function onchainVerifyPayment(
+  paymentHeader: string,
+  requirement: PaymentRequirement,
+): Promise<PaymentReceipt | null> {
+  let data: { txHash?: string; chainId?: number; asset?: string; amount?: string; payer?: string };
+  try {
+    data = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
+  } catch {
+    console.error('[x402] Failed to decode X-Payment header');
+    return null;
+  }
+
+  if (!data.txHash) {
+    console.error('[x402] X-Payment missing txHash');
+    return null;
+  }
+
+  // Verify chainId
+  if (data.chainId && data.chainId !== activeChain.chainId) {
+    console.error(`[x402] Chain mismatch: expected ${activeChain.chainId}, got ${data.chainId}`);
+    return null;
+  }
+
+  const pub = createPublicClient({ transport: http(activeChain.rpcUrl) });
+
+  try {
+    const receipt = await pub.getTransactionReceipt({ hash: data.txHash as Hex });
+
+    if (receipt.status !== 'success') {
+      console.error('[x402] Transaction reverted');
+      return null;
+    }
+
+    // Find ERC20 Transfer event to the recipient
+    let matchedAmount = 0n;
+    let payer = '';
+
+    for (const log of receipt.logs) {
+      try {
+        const decoded = decodeEventLog({
+          abi: ERC20_TRANSFER_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+
+        if (decoded.eventName !== 'Transfer') continue;
+        const args = decoded.args as { from: string; to: string; value: bigint };
+
+        // Check asset address matches
+        const logAsset = log.address.toLowerCase();
+        if (logAsset !== requirement.asset.toLowerCase()) continue;
+
+        // Check recipient matches
+        if (args.to.toLowerCase() !== requirement.recipient.toLowerCase()) continue;
+
+        matchedAmount += args.value;
+        payer = args.from;
+      } catch {
+        // Not a Transfer event — skip
+      }
+    }
+
+    if (matchedAmount === 0n) {
+      console.error('[x402] No matching ERC20 Transfer found in tx receipt');
+      return null;
+    }
+
+    console.log(`[x402] Verified onchain payment: tx=${data.txHash} amount=${matchedAmount} payer=${payer}`);
+
+    return {
+      paymentHash: data.txHash,
+      amount: matchedAmount.toString(),
+      asset: requirement.asset,
+      chainId: activeChain.chainId,
+      payer,
+      txHash: data.txHash,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[x402] Onchain verification failed: ${msg}`);
+    return null;
   }
 }
 
@@ -114,13 +210,11 @@ export function requirePayment(
     const paymentHeader = req.headers['x-payment'] as string | undefined;
 
     if (!paymentHeader) {
-      // No payment provided - return 402
       res.status(402).json(buildPaymentRequiredPayload(requirement));
       return;
     }
 
     try {
-      // Verify payment
       let receipt: PaymentReceipt | null = null;
 
       if (cfg.mockMode) {
@@ -128,10 +222,8 @@ export function requirePayment(
       } else if (cfg.verifyPayment) {
         receipt = await cfg.verifyPayment(paymentHeader);
       } else {
-        // No verifier configured - fall back to mock in dev
-        if (process.env.NODE_ENV !== 'production') {
-          receipt = await mockVerifyPayment(paymentHeader);
-        }
+        // Default: real onchain verification
+        receipt = await onchainVerifyPayment(paymentHeader, requirement);
       }
 
       if (!receipt) {
@@ -152,14 +244,9 @@ export function requirePayment(
         return;
       }
 
-      // Attach receipt to request
-      req.x402 = {
-        paid: true,
-        receipt,
-      };
-
+      req.x402 = { paid: true, receipt };
       next();
-    } catch (error) {
+    } catch {
       res.status(402).json({
         ...buildPaymentRequiredPayload(requirement),
         error: 'Payment verification failed',
