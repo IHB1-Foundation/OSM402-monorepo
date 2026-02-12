@@ -9,12 +9,9 @@ import {
   type IssueRecord,
 } from '../store/issues.js';
 import { depositToEscrow, createEscrow } from '../services/escrow.js';
+import { activeChain } from '../config/chains.js';
 
 const router = Router();
-
-// Base Sepolia USDC address
-const BASE_SEPOLIA_USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-const BASE_SEPOLIA_CHAIN_ID = 84532;
 
 /**
  * Request body schema for /api/fund
@@ -109,8 +106,8 @@ router.post(
         repoKey,
         issueNumber,
         bountyCap: bountyAmount.toString(),
-        asset: BASE_SEPOLIA_USDC,
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        asset: activeChain.asset,
+        chainId: activeChain.chainId,
         policyHash,
         status: 'PENDING',
         createdAt: new Date(),
@@ -123,8 +120,8 @@ router.post(
     // Apply x402 middleware
     const paymentMiddleware = requirePayment({
       amount: bountyAmount,
-      asset: BASE_SEPOLIA_USDC,
-      chainId: BASE_SEPOLIA_CHAIN_ID,
+      asset: activeChain.asset,
+      chainId: activeChain.chainId,
       recipient: computeEscrowAddress(repoKey, issueNumber, policyHash),
       description: `Fund bounty for ${repoKey}#${issueNumber}`,
     });

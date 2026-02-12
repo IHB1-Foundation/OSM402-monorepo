@@ -12,6 +12,7 @@ import { generateCartMandate } from '../services/mandate.js';
 import { releaseEscrow } from '../services/escrow.js';
 import type { DiffSummary, PayoutResult, Policy } from '@gitpay/policy';
 import type { Address, Hex } from 'viem';
+import { activeChain } from '../config/chains.js';
 
 interface PrClosedPayload {
   action: 'closed';
@@ -341,10 +342,10 @@ async function executePayoutInline(
     const releaseResult = await releaseEscrow({
       escrowAddress: escrowAddress as Address,
       intent: {
-        chainId: 84532n,
+        chainId: BigInt(activeChain.chainId),
         repoKeyHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
         issueNumber: 0n,
-        asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address,
+        asset: activeChain.asset,
         cap: 0n,
         expiry: 0n,
         policyHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
@@ -360,7 +361,7 @@ async function executePayoutInline(
         nonce: 0n,
       },
       cartSig: mockSig,
-      chainId: 84532,
+      chainId: activeChain.chainId,
     });
 
     if (!releaseResult.success) {

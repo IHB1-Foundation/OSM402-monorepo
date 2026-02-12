@@ -1,9 +1,11 @@
 /**
  * Chain adapter interface and implementations.
  * Abstracts chain-specific details for escrow operations.
+ * Configuration is driven by config/chains.ts.
  */
 
 import type { Address, Hex } from 'viem';
+import { activeChain, type ChainConfig } from '../config/chains.js';
 
 export interface ChainAdapter {
   name: string;
@@ -28,63 +30,27 @@ export interface ChainAdapter {
   release(escrow: Address, calldata: Hex): Promise<{ txHash: Hex }>;
 }
 
-/**
- * Base Sepolia adapter (default)
- */
-export const baseSepoliaAdapter: ChainAdapter = {
-  name: 'base-sepolia',
-  chainId: 84532,
-  rpcUrl: 'https://sepolia.base.org',
-  usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address,
-  isGasless: false,
+function buildAdapter(cfg: ChainConfig): ChainAdapter {
+  return {
+    name: cfg.name,
+    chainId: cfg.chainId,
+    rpcUrl: cfg.rpcUrl,
+    usdcAddress: cfg.asset,
+    isGasless: cfg.isGasless,
 
-  async createEscrow() {
-    // Delegated to escrow service (mock or real)
-    throw new Error('Use escrow service directly');
-  },
+    async createEscrow() {
+      throw new Error('Use escrow service directly');
+    },
+    async deposit() {
+      throw new Error('Use escrow service directly');
+    },
+    async release() {
+      throw new Error('Use escrow service directly');
+    },
+  };
+}
 
-  async deposit() {
-    throw new Error('Use escrow service directly');
-  },
-
-  async release() {
-    throw new Error('Use escrow service directly');
-  },
-};
-
-/**
- * SKALE adapter stub (gasless experience)
- */
-export const skaleAdapter: ChainAdapter = {
-  name: 'skale',
-  chainId: 0, // To be configured
-  rpcUrl: '', // To be configured
-  usdcAddress: '0x0000000000000000000000000000000000000000' as Address,
-  isGasless: true,
-
-  async createEscrow() {
-    throw new Error('SKALE adapter not implemented');
-  },
-
-  async deposit() {
-    throw new Error('SKALE adapter not implemented');
-  },
-
-  async release() {
-    throw new Error('SKALE adapter not implemented');
-  },
-};
-
-/**
- * Get chain adapter by name
- */
-export function getChainAdapter(name: string): ChainAdapter {
-  switch (name) {
-    case 'base-sepolia':
-      return baseSepoliaAdapter;
-    case 'skale':
-      return skaleAdapter;
-    default:
-      return baseSepoliaAdapter;
-  }
+/** Get chain adapter for the active chain */
+export function getChainAdapter(): ChainAdapter {
+  return buildAdapter(activeChain);
 }

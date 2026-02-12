@@ -3,14 +3,14 @@
  * All comments include hashes, tx links, and amounts.
  */
 
-const EXPLORER_BASE = 'https://sepolia.basescan.org';
+import { activeChain, txExplorerUrl, addressExplorerUrl } from '../config/chains.js';
 
 function txLink(txHash: string): string {
-  return `[${txHash.slice(0, 10)}...](${EXPLORER_BASE}/tx/${txHash})`;
+  return `[${txHash.slice(0, 10)}...](${txExplorerUrl(txHash)})`;
 }
 
 function addressLink(address: string): string {
-  return `[${address.slice(0, 10)}...](${EXPLORER_BASE}/address/${address})`;
+  return `[${address.slice(0, 10)}...](${addressExplorerUrl(address)})`;
 }
 
 /**
@@ -28,7 +28,7 @@ export function fundingPendingComment(params: {
     `|-------|-------|`,
     `| Amount | $${params.amountUsd} USDC |`,
     `| Escrow | ${addressLink(params.escrowAddress)} |`,
-    `| Chain | Base Sepolia (${params.chainId}) |`,
+    `| Chain | ${activeChain.name} (${params.chainId}) |`,
     `| Status | Funding pending |`,
     '',
     `> Fund this bounty by sending an x402 payment to \`POST /api/fund\`.`,
@@ -58,7 +58,7 @@ export function fundedComment(params: {
     `| Escrow | ${addressLink(params.escrowAddress)} |`,
     `| Intent Hash | \`${params.intentHash.slice(0, 18)}...\` |`,
     txLine,
-    `| Chain | Base Sepolia (${params.chainId}) |`,
+    `| Chain | ${activeChain.name} (${params.chainId}) |`,
     '',
     `> Escrow is funded. Submit a PR referencing this issue to claim the bounty.`,
   ].join('\n');

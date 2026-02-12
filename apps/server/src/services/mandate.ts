@@ -6,11 +6,7 @@
 import { createCart, hashCart, type Cart } from '@gitpay/mandates';
 import { computeMergeShaHash } from '@gitpay/policy';
 import type { Address, Hex } from 'viem';
-
-const BASE_SEPOLIA_CHAIN_ID = 84532n;
-
-// Placeholder escrow factory address (filled after deployment)
-const DEFAULT_VERIFYING_CONTRACT = '0x0000000000000000000000000000000000000000' as Address;
+import { activeChain } from '../config/chains.js';
 
 // Global nonce counter (in production, use DB-backed nonce)
 let cartNonce = 0n;
@@ -40,7 +36,6 @@ export interface CartMandateResult {
  */
 export function generateCartMandate(params: CartMandateParams): CartMandateResult {
   const mergeShaHash = computeMergeShaHash(params.mergeSha);
-  const verifyingContract = params.escrowAddress || DEFAULT_VERIFYING_CONTRACT;
 
   const cart = createCart({
     intentHash: params.intentHash,
@@ -51,11 +46,13 @@ export function generateCartMandate(params: CartMandateParams): CartMandateResul
     nonce: nextNonce(),
   });
 
-  const cartHash = hashCart(cart, verifyingContract, BASE_SEPOLIA_CHAIN_ID);
+  const verifyingContract = params.escrowAddress || activeChain.factoryAddress;
+  const chainId = BigInt(activeChain.chainId);
+  const cartHash = hashCart(cart, verifyingContract, chainId);
 
   return {
     cart,
     cartHash,
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId,
   };
 }

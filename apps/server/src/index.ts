@@ -2,6 +2,7 @@ import express from 'express';
 import { config } from './config.js';
 import { requirePayment, type X402Request } from './middleware/x402.js';
 import { requireSecret } from './middleware/authSecret.js';
+import { activeChain } from './config/chains.js';
 import fundRouter from './routes/fund.js';
 import webhooksRouter from './routes/webhooks.js';
 import payoutRouter from './routes/payout.js';
@@ -38,8 +39,8 @@ app.post(
   '/api/x402-test',
   requirePayment({
     amount: 1000000n, // 1 USDC (6 decimals)
-    asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia USDC
-    chainId: 84532,
+    asset: activeChain.asset,
+    chainId: activeChain.chainId,
     recipient: '0x0000000000000000000000000000000000000000', // Placeholder
     description: 'Test payment',
   }),
@@ -54,5 +55,6 @@ app.post(
 
 app.listen(config.PORT, () => {
   console.log(`GitPay server running on port ${config.PORT}`);
+  console.log(`Chain: ${activeChain.name} (${activeChain.chainId})`);
   console.log(`Health check: http://localhost:${config.PORT}/api/health`);
 });

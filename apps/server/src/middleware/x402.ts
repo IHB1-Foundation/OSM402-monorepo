@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
+import { activeChain } from '../config/chains.js';
 
 /**
  * x402 payment requirement configuration
@@ -82,7 +83,7 @@ async function mockVerifyPayment(paymentHeader: string): Promise<PaymentReceipt 
       paymentHash: data.paymentHash || `mock-${Date.now()}`,
       amount: String(data.amount || '0'),
       asset: data.asset || '0x0000000000000000000000000000000000000000',
-      chainId: data.chainId || 84532,
+      chainId: data.chainId || activeChain.chainId,
       payer: data.payer || '0x0000000000000000000000000000000000000000',
       txHash: data.txHash,
     };
@@ -92,7 +93,7 @@ async function mockVerifyPayment(paymentHeader: string): Promise<PaymentReceipt 
       paymentHash: `mock-${Date.now()}`,
       amount: '0',
       asset: '0x0000000000000000000000000000000000000000',
-      chainId: 84532,
+      chainId: activeChain.chainId,
       payer: '0x0000000000000000000000000000000000000000',
     };
   }
@@ -176,7 +177,7 @@ export function createMockPaymentHeader(receipt: Partial<PaymentReceipt>): strin
       paymentHash: receipt.paymentHash || `mock-${Date.now()}`,
       amount: receipt.amount || '0',
       asset: receipt.asset || '0x0000000000000000000000000000000000000000',
-      chainId: receipt.chainId || 84532,
+      chainId: receipt.chainId || activeChain.chainId,
       payer: receipt.payer || '0x0000000000000000000000000000000000000000',
       txHash: receipt.txHash,
     })

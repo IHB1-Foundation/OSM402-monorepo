@@ -8,9 +8,7 @@ import { getIssue, upsertIssue } from '../store/issues.js';
 import { createEscrow } from '../services/escrow.js';
 import { postIssueComment } from '../services/github.js';
 import { fundingPendingComment } from '../services/comments.js';
-
-const BASE_SEPOLIA_USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-const BASE_SEPOLIA_CHAIN_ID = 84532;
+import { activeChain } from '../config/chains.js';
 
 interface IssueLabeledPayload {
   action: 'labeled';
@@ -63,8 +61,8 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload): Promise<
     repoKey,
     issueNumber,
     bountyCap: bountyAmount.toString(),
-    asset: BASE_SEPOLIA_USDC,
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    asset: activeChain.asset,
+    chainId: activeChain.chainId,
     policyHash,
     status: 'PENDING',
     createdAt: new Date(),
@@ -76,17 +74,17 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload): Promise<
     repoKeyHash,
     issueNumber: BigInt(issueNumber),
     policyHash: policyHash as `0x${string}`,
-    asset: BASE_SEPOLIA_USDC as Address,
+    asset: activeChain.asset as Address,
     cap: bountyAmount,
     expiry: BigInt(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60),
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId: activeChain.chainId,
   });
 
   // Post comment on GitHub issue
   const comment = fundingPendingComment({
     amountUsd: bountyCapUsd,
     escrowAddress,
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId: activeChain.chainId,
   });
   await postIssueComment(repoKey, issueNumber, comment);
 
