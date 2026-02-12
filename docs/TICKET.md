@@ -190,7 +190,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Implement YAML parser and normalization + hashing.
 - Tasks:

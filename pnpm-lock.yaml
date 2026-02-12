@@ -81,7 +81,21 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.11)
 
-  packages/policy: {}
+  packages/policy:
+    dependencies:
+      viem:
+        specifier: ^2.21.54
+        version: 2.45.3(typescript@5.9.3)(zod@3.25.76)
+      yaml:
+        specifier: ^2.6.1
+        version: 2.8.2
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.11)
 
 packages:
 
@@ -1632,6 +1646,11 @@ packages:
       utf-8-validate:
         optional: true
 
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
@@ -3106,6 +3125,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.18.3: {}
+
+  yaml@2.8.2: {}
 
   yocto-queue@0.1.0: {}
 

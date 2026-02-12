@@ -1,0 +1,9 @@
+// Types
+export type { Policy, Tier, Payout, HoldRule, AddressClaim, PathMatch } from './types.js';
+export { PolicySchema, TierSchema, PayoutSchema, HoldRuleSchema } from './types.js';
+
+// Parser functions
+export { parsePolicy, parsePolicySafe, validatePolicy, normalizeYaml } from './parser.js';
+
+// Hash functions
+export { computePolicyHash, computeRepoKeyHash, computeMergeShaHash } from './hash.js';
