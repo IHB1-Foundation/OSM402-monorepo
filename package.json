@@ -1,0 +1,20 @@
+{
+  "name": "gitpay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GitPay.ai - Fund with x402. Merge with Proof. Pay by Mandate.",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "test": "pnpm -r test",
+    "lint": "echo 'lint not configured yet'",
+    "format": "echo 'format not configured yet'",
+    "typecheck": "echo 'typecheck not configured yet'",
+    "contracts:test": "pnpm --filter contracts test"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
