@@ -4,6 +4,7 @@ import { keccak256, toHex } from 'viem';
 import { isDeliveryProcessed, recordDelivery } from '../store/events.js';
 import { handleIssueLabeled } from '../handlers/issueLabeled.js';
 import { handlePrOpened, handlePrSynchronize } from '../handlers/prEvent.js';
+import { handleMergeDetected } from '../handlers/mergeDetected.js';
 
 const router = Router();
 
@@ -103,10 +104,11 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    case 'pull_request.closed':
-      // Will be handled by GP-043
-      res.json({ received: true, event: eventKey, deliveryId, handler: 'pending' });
+    case 'pull_request.closed': {
+      const mergeResult = await handleMergeDetected(req.body);
+      res.json({ received: true, event: eventKey, deliveryId, ...mergeResult });
       return;
+    }
 
     default:
       res.json({ received: true, event: eventKey, deliveryId, handler: 'unhandled' });
