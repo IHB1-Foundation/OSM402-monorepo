@@ -1,0 +1,17 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "rpcUrl": "https://sepolia.base.org",
+  "explorerUrl": "https://sepolia.basescan.org",
+  "contracts": {
+    "issueEscrowFactory": "",
+    "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  },
+  "signers": {
+    "maintainer": "",
+    "agent": ""
+  },
+  "deployed": false,
+  "deployedAt": null,
+  "notes": "Fill in contract addresses after deployment using: forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast"
+}

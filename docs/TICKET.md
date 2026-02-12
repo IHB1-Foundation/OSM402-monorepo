@@ -157,7 +157,7 @@ A ticket is DONE only if:
 
 - Type: Infra
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Add scripts to deploy factory and record addresses/config.
 - Tasks:
