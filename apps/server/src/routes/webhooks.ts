@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { keccak256, toHex } from 'viem';
 import { isDeliveryProcessed, recordDelivery } from '../store/events.js';
 import { handleIssueLabeled } from '../handlers/issueLabeled.js';
+import { handlePrOpened, handlePrSynchronize } from '../handlers/prEvent.js';
 
 const router = Router();
 
@@ -90,11 +91,17 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    case 'pull_request.opened':
-    case 'pull_request.synchronize':
-      // Will be handled by GP-042
-      res.json({ received: true, event: eventKey, deliveryId, handler: 'pending' });
+    case 'pull_request.opened': {
+      const prResult = await handlePrOpened(req.body);
+      res.json({ received: true, event: eventKey, deliveryId, ...prResult });
       return;
+    }
+
+    case 'pull_request.synchronize': {
+      const syncResult = await handlePrSynchronize(req.body);
+      res.json({ received: true, event: eventKey, deliveryId, ...syncResult });
+      return;
+    }
 
     case 'pull_request.closed':
       // Will be handled by GP-043
