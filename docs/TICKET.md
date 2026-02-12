@@ -442,7 +442,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P1
-- Status: TODO
+- Status: DONE
 - Description:
   - Build prompt from diff + metadata, ensure token limits.
 - Acceptance Criteria:

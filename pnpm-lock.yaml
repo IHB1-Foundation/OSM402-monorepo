@@ -45,6 +45,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@gitpay/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@gitpay/mandates':
         specifier: workspace:*
         version: link:../../packages/mandates
