@@ -14,10 +14,26 @@ inputs:
   action_secret:
     description: 'Shared secret for API authentication'
     required: true
+  payer_address:
+    description: 'Payer wallet address for x402 payment'
+    required: false
+    default: '0x0000000000000000000000000000000000000001'
+  issue_number:
+    description: 'Issue number (for workflow_dispatch manual trigger)'
+    required: false
+  bounty_amount:
+    description: 'Bounty amount in USD (for workflow_dispatch manual trigger)'
+    required: false
 
 outputs:
   result:
-    description: 'Result of the API call'
+    description: 'JSON result of the funding operation'
+  escrow_address:
+    description: 'Escrow contract address'
+  deposit_tx:
+    description: 'Deposit transaction hash'
+  intent_hash:
+    description: 'Intent mandate hash'
 
 runs:
   using: 'node20'

@@ -7,12 +7,24 @@ on:
         description: 'GitPay API URL'
         required: true
         default: 'http://localhost:3000'
+      issue_number:
+        description: 'Issue number to fund'
+        required: false
+        default: '1'
+      bounty_amount:
+        description: 'Bounty amount in USD'
+        required: false
+        default: '10'
   issues:
     types: [labeled]
 
 jobs:
-  gitpay-action:
+  gitpay-fund:
     runs-on: ubuntu-latest
+    # Only run for bounty labels or manual dispatch
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && startsWith(github.event.label.name, 'bounty:$'))
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,8 +44,19 @@ jobs:
           cd apps/github-action
           npm run build
 
-      - name: Run GitPay Action
+      - name: Run GitPay Fund Action
+        id: fund
         uses: ./apps/github-action
         with:
-          api_url: ${{ github.event.inputs.api_url || 'http://localhost:3000' }}
+          api_url: ${{ github.event.inputs.api_url || secrets.GITPAY_API_URL || 'http://localhost:3000' }}
           action_secret: ${{ secrets.GITPAY_ACTION_SECRET }}
+          payer_address: ${{ secrets.X402_PAYER_ADDRESS || '0x0000000000000000000000000000000000000001' }}
+          issue_number: ${{ github.event.inputs.issue_number || '' }}
+          bounty_amount: ${{ github.event.inputs.bounty_amount || '' }}
+
+      - name: Print result
+        run: |
+          echo "Result: ${{ steps.fund.outputs.result }}"
+          echo "Escrow: ${{ steps.fund.outputs.escrow_address }}"
+          echo "Deposit TX: ${{ steps.fund.outputs.deposit_tx }}"
+          echo "Intent Hash: ${{ steps.fund.outputs.intent_hash }}"
