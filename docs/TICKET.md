@@ -110,7 +110,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Implement CREATE2 factory and per-issue escrow contract.
 - Tasks:
