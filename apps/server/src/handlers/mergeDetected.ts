@@ -196,7 +196,7 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     }
   } else {
     console.log('[merge] .gitpay.yml not found, using default policy');
-    policy = defaultPolicy(issue);
+    policy = buildDefaultPolicy(issue);
   }
 
   const payoutResult: PayoutResult = calculatePayout(policy, diff);

@@ -38,6 +38,7 @@ contracts/broadcast/
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 
 # Misc
 *.tsbuildinfo

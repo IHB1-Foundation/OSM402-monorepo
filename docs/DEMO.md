@@ -1,119 +1,272 @@
-# GitPay.ai — End-to-End Demo Script
+# GitPay.ai — Demo Playbook
 
-**Duration:** 3–5 minutes
+**Duration:** 5–10 minutes setup, 3–5 minutes demo run
 
-## Prerequisites
+---
 
-1. Server running: `pnpm dev --filter server`
-2. `.env` configured (copy from `.env.example`)
-3. `X402_MOCK_MODE=true` (for local testing without real payments)
+## Quick Start (One Command)
 
-## Step 1: Verify Server Health (30s)
+After setup, run the entire happy path in a single shot:
 
 ```bash
-curl http://localhost:3000/api/health | jq
+./scripts/demo.sh
 ```
 
-Expected:
-```json
-{ "status": "ok", "timestamp": "...", "version": "0.1.0" }
+The script runs all 6 demo steps automatically: health check, funding (402 challenge → payment), PR open with address claim, merge webhook, payout execution, and idempotency verification.
+
+Options:
+
+```bash
+./scripts/demo.sh --no-color            # disable color output
+DEMO_BASE_URL=http://host:4000 ./scripts/demo.sh  # custom server URL
 ```
 
-## Step 2: Fund a Bounty via x402 (1 min)
+---
 
-### 2a. Call `/api/fund` without payment (expect 402)
+## Pre-Demo Checklist
+
+### 1. Machine Setup (one-time)
+
+- [ ] Node 20+ installed (`node -v`)
+- [ ] pnpm 8+ installed (`pnpm -v`)
+- [ ] Foundry installed (`forge --version`) — for contract tests/deploy
+- [ ] `jq` installed (`jq --version`) — for JSON output formatting
+- [ ] `openssl` available (`openssl version`) — for webhook signature
+
+### 2. Project Setup (one-time)
+
+```bash
+git clone <repo-url> && cd gitpay
+pnpm install
+pnpm -r build
+cp .env.example .env
+```
+
+### 3. Environment Configuration
+
+Edit `.env` with these values:
+
+```bash
+# Required for demo
+GITHUB_WEBHOOK_SECRET=demo-secret
+GITPAY_ACTION_SHARED_SECRET=demo-action-secret
+
+# Mock modes (recommended for stable demo)
+X402_MOCK_MODE=true
+ESCROW_MOCK_MODE=true
+```
+
+### 4. Start Server
+
+```bash
+pnpm dev --filter server
+```
+
+Verify: `curl http://localhost:3000/api/health | jq`
+
+### 5. Optional: SKALE Testnet Deploy (for "real deploy" proof)
+
+Use this to show contracts deployed on a real testnet during the demo.
+
+- [ ] Deployer private key with sFUEL on SKALE Europa Hub Testnet
+- [ ] Set SKALE env vars in `.env`:
+  ```bash
+  CHAIN_NAME=skale
+  CHAIN_ID=1444673419
+  RPC_URL=https://testnet.skalenodes.com/v1/juicy-low-small-testnet
+  EXPLORER_URL=https://juicy-low-small-testnet.explorer.testnet.skalenodes.com
+  ```
+- [ ] Deploy contracts:
+  ```bash
+  cd contracts
+  DEPLOYER_PRIVATE_KEY=<key> forge script script/DeploySKALE.s.sol \
+    --rpc-url https://testnet.skalenodes.com/v1/juicy-low-small-testnet \
+    --broadcast
+  ```
+- [ ] Record factory + MockUSDC addresses in `apps/server/config/chains/skale-testnet.json`
+- [ ] Open explorer to show deployed contract: `https://juicy-low-small-testnet.explorer.testnet.skalenodes.com/address/<FACTORY>`
+
+### 6. Optional: Real GitHub Integration
+
+For a live GitHub demo (webhook from a real repo):
+
+- [ ] Create a GitHub App with webhook events: `issues`, `pull_request`, `issue_comment`
+- [ ] Install the app on a test repository
+- [ ] Set `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PEM`, `GITHUB_WEBHOOK_SECRET` in `.env`
+- [ ] Use ngrok or similar to expose local server: `ngrok http 3000`
+- [ ] Set webhook URL in GitHub App settings to ngrok URL + `/api/webhooks/github`
+- [ ] Add `.gitpay.yml` to the test repository root
+- [ ] Add a `bounty:$10` label to an issue to trigger funding
+
+---
+
+## Happy Path Demo Script (Manual)
+
+All commands assume server is running on `http://localhost:3000`.
+
+### Step 1: Health Check (10s)
+
+```bash
+curl -s http://localhost:3000/api/health | jq
+```
+
+Expected: `{"status":"ok","timestamp":"...","version":"0.1.0"}`
+
+### Step 2: Fund a Bounty via x402 (60s)
+
+#### 2a. Call without payment → 402 challenge
 
 ```bash
 curl -s -w "\nHTTP %{http_code}\n" \
   -X POST http://localhost:3000/api/fund \
   -H "Content-Type: application/json" \
-  -d '{"repoKey":"owner/repo","issueNumber":1,"bountyCapUsd":10}'
+  -H "X-GitPay-Secret: demo-action-secret" \
+  -d '{"repoKey":"demo/repo","issueNumber":1,"bountyCapUsd":10}'
 ```
 
-Expected: `HTTP 402` with payment requirements.
+Expected: `HTTP 402` with payment requirements JSON.
 
-### 2b. Retry with x402 payment header
+#### 2b. Retry with x402 payment header → funded
 
 ```bash
-PAYMENT=$(echo -n '{"paymentHash":"demo-001","amount":"10000000","asset":"0x036CbD53842c5426634e7929541eC2318f3dCF7e","chainId":84532,"payer":"0x0000000000000000000000000000000000000001"}' | base64)
+PAYMENT=$(echo -n '{"paymentHash":"demo-001","amount":"10000000","chainId":84532,"payer":"0x0000000000000000000000000000000000000001"}' | base64)
 
 curl -s -X POST http://localhost:3000/api/fund \
   -H "Content-Type: application/json" \
+  -H "X-GitPay-Secret: demo-action-secret" \
   -H "X-Payment: $PAYMENT" \
-  -d '{"repoKey":"owner/repo","issueNumber":1,"bountyCapUsd":10}' | jq
+  -d '{"repoKey":"demo/repo","issueNumber":1,"bountyCapUsd":10}' | jq
 ```
 
-Expected: `200 OK` with escrow address, deposit tx hash, intent hash.
+Expected: `200` with escrowAddress, depositTxHash, intentHash.
 
-### 2c. Verify funding status
+#### 2c. Verify funding status
 
 ```bash
-curl http://localhost:3000/api/fund/owner/repo/1 | jq
+curl -s http://localhost:3000/api/fund/demo/repo/1 \
+  -H "X-GitPay-Secret: demo-action-secret" | jq '.issue.status'
 ```
 
-## Step 3: Simulate Merge Webhook (1 min)
+Expected: `"FUNDED"`
+
+### Step 3: Simulate PR Open + Address Claim (30s)
 
 ```bash
+SIG=$(echo -n '{"action":"opened","number":42,"pull_request":{"number":42,"title":"Fix #1","body":"Closes #1\ngitpay:address 0x1234567890abcdef1234567890abcdef12345678","merged":false,"merge_commit_sha":null,"user":{"login":"contributor"},"head":{"sha":"head123"},"base":{"ref":"main"},"changed_files":2,"additions":30,"deletions":5},"repository":{"full_name":"demo/repo","default_branch":"main"}}' | openssl dgst -sha256 -hmac "demo-secret" | awk '{print "sha256="$2}')
+
 curl -s -X POST http://localhost:3000/api/webhooks/github \
   -H "Content-Type: application/json" \
   -H "X-GitHub-Event: pull_request" \
-  -H "X-GitHub-Delivery: demo-delivery-001" \
-  -d '{
-    "action": "closed",
-    "number": 42,
-    "pull_request": {
-      "number": 42,
-      "title": "Fix issue #1",
-      "body": "Closes #1",
-      "merged": true,
-      "merge_commit_sha": "abc123def456",
-      "user": {"login": "contributor"},
-      "head": {"sha": "head123"},
-      "base": {"ref": "main"},
-      "changed_files": 2,
-      "additions": 30,
-      "deletions": 5
-    },
-    "repository": {
-      "full_name": "owner/repo",
-      "default_branch": "main"
-    }
-  }' | jq
+  -H "X-GitHub-Delivery: demo-pr-open-001" \
+  -H "X-Hub-Signature-256: $SIG" \
+  -d '{"action":"opened","number":42,"pull_request":{"number":42,"title":"Fix #1","body":"Closes #1\ngitpay:address 0x1234567890abcdef1234567890abcdef12345678","merged":false,"merge_commit_sha":null,"user":{"login":"contributor"},"head":{"sha":"head123"},"base":{"ref":"main"},"changed_files":2,"additions":30,"deletions":5},"repository":{"full_name":"demo/repo","default_branch":"main"}}' | jq
 ```
 
-Expected: Payout created (status PENDING or auto-executed to DONE).
+### Step 4: Simulate Merge → Payout (60s)
 
-## Step 4: Execute Payout (30s)
+```bash
+MERGE_BODY='{"action":"closed","number":42,"pull_request":{"number":42,"title":"Fix #1","body":"Closes #1\ngitpay:address 0x1234567890abcdef1234567890abcdef12345678","merged":true,"merge_commit_sha":"abc123def456789012345678901234567890abcd","user":{"login":"contributor"},"head":{"sha":"head123"},"base":{"ref":"main"},"changed_files":2,"additions":30,"deletions":5},"repository":{"full_name":"demo/repo","default_branch":"main"}}'
+
+SIG=$(echo -n "$MERGE_BODY" | openssl dgst -sha256 -hmac "demo-secret" | awk '{print "sha256="$2}')
+
+curl -s -X POST http://localhost:3000/api/webhooks/github \
+  -H "Content-Type: application/json" \
+  -H "X-GitHub-Event: pull_request" \
+  -H "X-GitHub-Delivery: demo-merge-001" \
+  -H "X-Hub-Signature-256: $SIG" \
+  -d "$MERGE_BODY" | jq
+```
+
+Expected: Payout created (PENDING or auto-executed to DONE).
+
+### Step 5: Execute Payout (30s)
 
 ```bash
 curl -s -X POST http://localhost:3000/api/payout/execute \
   -H "Content-Type: application/json" \
-  -d '{"repoKey":"owner/repo","prNumber":42}' | jq
+  -H "X-GitPay-Secret: demo-action-secret" \
+  -d '{"repoKey":"demo/repo","prNumber":42}' | jq
 ```
 
-Expected: `200 OK` with tx hash (mock in dev mode).
+Expected: `200` with txHash (mock in dev mode).
 
-## Step 5: Verify Idempotency (30s)
+### Step 6: Verify Idempotency (20s)
 
-Re-send the same webhook delivery:
+Re-send the same merge webhook:
 
 ```bash
 curl -s -X POST http://localhost:3000/api/webhooks/github \
   -H "Content-Type: application/json" \
   -H "X-GitHub-Event: pull_request" \
-  -H "X-GitHub-Delivery: demo-delivery-001" \
-  -d '{}' | jq
+  -H "X-GitHub-Delivery: demo-merge-001" \
+  -H "X-Hub-Signature-256: $SIG" \
+  -d "$MERGE_BODY" | jq
 ```
 
-Expected: `200 OK` with "Delivery already processed" — no duplicate payout.
+Expected: `"Delivery already processed"` — no duplicate payout.
 
-## Summary
+---
 
-| Step | Action | Result |
-|------|--------|--------|
-| 1 | Health check | Server running |
-| 2a | Fund (no payment) | 402 with requirements |
-| 2b | Fund (with x402) | Escrow funded |
-| 3 | Merge webhook | Payout pipeline started |
-| 4 | Execute payout | TX recorded |
-| 5 | Duplicate webhook | Safely ignored |
+## Demo Summary Table
+
+| Step | Action | Expected Result | Duration |
+|------|--------|-----------------|----------|
+| 1 | Health check | Server OK | 10s |
+| 2a | Fund (no payment) | 402 with requirements | 15s |
+| 2b | Fund (with x402) | Escrow funded, intentHash | 15s |
+| 2c | Verify status | Issue = FUNDED | 10s |
+| 3 | PR open + address claim | PR recorded, address captured | 15s |
+| 4 | Merge webhook | Payout pipeline triggered | 15s |
+| 5 | Execute payout | TX hash recorded | 15s |
+| 6 | Duplicate webhook | Safely ignored | 10s |
+
+**Total: ~2 minutes** (automated script) / ~4 minutes (manual with narration)
+
+---
+
+## Judging Criteria Mapping
+
+| Criteria | GitPay Feature | Demo Step | Evidence |
+|----------|---------------|-----------|----------|
+| **AI Readiness** | Gemini structured review + riskFlags → HOLD | PR open triggers AI review | Structured JSON output with summary, riskFlags, testObservations |
+| **Commerce Realism** | x402 HTTP 402 → payment → onchain escrow | Steps 2a–2b | Real 402 challenge-response, payment verification, escrow deposit |
+| **Ship-ability** | Full pipeline: fund → merge → payout | Steps 2–5 | End-to-end flow with SQLite persistence, idempotency |
+| **Partner Integration (SKALE)** | Gasless deployment, chain adapter, MockUSDC | Optional SKALE deploy | Contracts on SKALE Europa Hub Testnet, gasless tx |
+| **Composability** | EIP-712 mandates, deterministic escrow (CREATE2) | Intent/Cart hashes in output | Two-mandate authorization, deterministic escrow addresses |
+
+---
+
+## Fallback Plan
+
+| Problem | Fallback |
+|---------|----------|
+| x402 issues | Keep `X402_MOCK_MODE=true`, show 402 → retry flow |
+| Chain slow/down | Skip SKALE deploy, run full demo on mock mode |
+| Webhook signature trouble | Double-check `GITHUB_WEBHOOK_SECRET` matches between `.env` and script |
+| AI reviewer timeout | AI review is non-blocking; payout still proceeds |
+| SQLite issues | Delete `apps/server/dev.db` and restart server (auto-creates tables) |
+| Server won't start | Check `pnpm install` and `.env` — most issues are missing deps or env |
+
+---
+
+## Fresh Machine → Demo in 10 Minutes
+
+```bash
+# 1. Clone & install (3 min)
+git clone <repo-url> && cd gitpay
+pnpm install && pnpm -r build
+
+# 2. Configure (1 min)
+cp .env.example .env
+# Edit .env: set GITHUB_WEBHOOK_SECRET=demo-secret
+#            set GITPAY_ACTION_SHARED_SECRET=demo-action-secret
+
+# 3. Start server (30s)
+pnpm dev --filter server
+
+# 4. Run demo (2 min) — in another terminal
+./scripts/demo.sh
+
+# 5. (Optional) Run contract tests (2 min)
+pnpm contracts:test
+```
