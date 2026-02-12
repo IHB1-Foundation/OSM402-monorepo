@@ -253,7 +253,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Funding endpoint that creates/uses escrow and records Intent mandate.
 - Tasks:

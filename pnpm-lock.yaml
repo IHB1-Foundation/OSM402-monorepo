@@ -51,6 +51,9 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.22.1
+      viem:
+        specifier: ^2.21.54
+        version: 2.45.3(typescript@5.9.3)(zod@3.25.76)
       zod:
         specifier: ^3.24.1
         version: 3.25.76

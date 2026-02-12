@@ -1,10 +1,14 @@
 import express from 'express';
 import { config } from './config.js';
 import { requirePayment, type X402Request } from './middleware/x402.js';
+import fundRouter from './routes/fund.js';
 
 const app = express();
 
 app.use(express.json());
+
+// Fund endpoint
+app.use('/api/fund', fundRouter);
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
