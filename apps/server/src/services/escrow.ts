@@ -1,9 +1,62 @@
-import { keccak256, toHex, type Hex, type Address } from 'viem';
+import {
+  keccak256,
+  toHex,
+  type Hex,
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  http,
+  parseAbi,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import type { Cart, Intent } from '@gitpay/mandates';
+import { activeChain } from '../config/chains.js';
 
-/**
- * Escrow deposit configuration
- */
+// --- ABI fragments for onchain interactions ---
+
+const FACTORY_ABI = parseAbi([
+  'function createEscrow(bytes32 repoKeyHash, uint256 issueNumber, bytes32 policyHash, address asset, uint256 cap, uint256 expiry) external returns (address)',
+  'function getEscrow(bytes32 repoKeyHash, uint256 issueNumber) external view returns (address)',
+  'function computeEscrowAddress(bytes32 repoKeyHash, uint256 issueNumber, bytes32 policyHash, address asset, uint256 cap, uint256 expiry) external view returns (address)',
+]);
+
+const ERC20_ABI = parseAbi([
+  'function transfer(address to, uint256 amount) external returns (bool)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+]);
+
+const ESCROW_ABI = parseAbi([
+  'function release((uint256 chainId, bytes32 repoKeyHash, uint256 issueNumber, address asset, uint256 cap, uint256 expiry, bytes32 policyHash, uint256 nonce) intent, bytes intentSig, (bytes32 intentHash, bytes32 mergeSha, uint256 prNumber, address recipient, uint256 amount, uint256 nonce) cart, bytes cartSig) external',
+  'event Released(uint256 amount, address recipient, bytes32 cartHash, bytes32 intentHash, bytes32 mergeSha)',
+]);
+
+// --- Config ---
+
+const MOCK_MODE = process.env.ESCROW_MOCK_MODE !== 'false';
+
+function getAgentKey(): Hex {
+  const key = process.env.GITPAY_AGENT_PRIVATE_KEY;
+  if (!key) throw new Error('GITPAY_AGENT_PRIVATE_KEY not set');
+  return key as Hex;
+}
+
+function getPublicClient() {
+  return createPublicClient({
+    transport: http(activeChain.rpcUrl),
+  });
+}
+
+function getWalletClient() {
+  const account = privateKeyToAccount(getAgentKey());
+  return createWalletClient({
+    account,
+    transport: http(activeChain.rpcUrl),
+  });
+}
+
+// --- Deposit ---
+
 export interface DepositConfig {
   escrowAddress: Address;
   asset: Address;
@@ -11,9 +64,6 @@ export interface DepositConfig {
   chainId: number;
 }
 
-/**
- * Escrow deposit result
- */
 export interface DepositResult {
   success: boolean;
   txHash?: Hex;
@@ -21,79 +71,50 @@ export interface DepositResult {
   blockNumber?: number;
 }
 
-/**
- * Mock mode flag - uses simulated transactions in development
- */
-const MOCK_MODE = process.env.ESCROW_MOCK_MODE !== 'false';
-
-/**
- * Mock deposit - generates fake txHash for development
- */
 async function mockDeposit(config: DepositConfig): Promise<DepositResult> {
-  // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 100));
-
-  // Generate deterministic mock txHash
   const txHash = keccak256(
     toHex(`mock-deposit:${config.escrowAddress}:${config.amount}:${Date.now()}`)
   );
-
-  return {
-    success: true,
-    txHash,
-    blockNumber: Math.floor(Date.now() / 1000), // Mock block number
-  };
+  return { success: true, txHash, blockNumber: Math.floor(Date.now() / 1000) };
 }
 
-/**
- * Real deposit - calls onchain ERC20 transfer
- * TODO: Implement actual onchain deposit
- */
-async function realDeposit(_config: DepositConfig): Promise<DepositResult> {
-  // This would use viem to:
-  // 1. Create a wallet client with the server's private key
-  // 2. Call ERC20 transfer to the escrow address
-  // 3. Wait for confirmation
-  // 4. Return txHash
+async function realDeposit(config: DepositConfig): Promise<DepositResult> {
+  try {
+    const wallet = getWalletClient();
+    const pub = getPublicClient();
 
-  // For MVP, this is a placeholder
-  return {
-    success: false,
-    error: 'Real deposit not implemented - use ESCROW_MOCK_MODE=true',
-  };
-}
+    const txHash = await wallet.writeContract({
+      address: config.asset,
+      abi: ERC20_ABI,
+      functionName: 'transfer',
+      args: [config.escrowAddress, config.amount],
+      chain: null,
+    });
 
-/**
- * Deposit funds into escrow
- * Uses mock mode in development, real mode in production
- */
-export async function depositToEscrow(config: DepositConfig): Promise<DepositResult> {
-  if (MOCK_MODE) {
-    return mockDeposit(config);
+    const receipt = await pub.waitForTransactionReceipt({ hash: txHash });
+    console.log(`[escrow] Deposit confirmed: tx=${txHash} block=${receipt.blockNumber}`);
+
+    return {
+      success: receipt.status === 'success',
+      txHash,
+      blockNumber: Number(receipt.blockNumber),
+      error: receipt.status !== 'success' ? 'Transaction reverted' : undefined,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[escrow] Deposit failed: ${msg}`);
+    return { success: false, error: msg };
   }
+}
+
+export async function depositToEscrow(config: DepositConfig): Promise<DepositResult> {
+  if (MOCK_MODE) return mockDeposit(config);
   return realDeposit(config);
 }
 
-/**
- * Verify escrow balance (mock for MVP)
- */
-export async function verifyEscrowBalance(
-  escrowAddress: Address,
-  _asset: Address,
-  _chainId: number
-): Promise<bigint> {
-  if (MOCK_MODE) {
-    // Return a mock balance
-    return 0n;
-  }
+// --- Create escrow ---
 
-  // TODO: Use viem to query ERC20 balance
-  return 0n;
-}
-
-/**
- * Create escrow via factory (mock for MVP)
- */
 export async function createEscrow(params: {
   repoKeyHash: Hex;
   issueNumber: bigint;
@@ -104,25 +125,93 @@ export async function createEscrow(params: {
   chainId: number;
 }): Promise<{ escrowAddress: Address; txHash: Hex }> {
   if (MOCK_MODE) {
-    // Generate deterministic mock escrow address
     const escrowAddress = `0x${keccak256(
       toHex(`escrow:${params.repoKeyHash}:${params.issueNumber}:${params.policyHash}`)
     ).slice(26)}` as Address;
-
     const txHash = keccak256(
       toHex(`create-escrow:${escrowAddress}:${Date.now()}`)
     );
-
     return { escrowAddress, txHash };
   }
 
-  // TODO: Call IssueEscrowFactory.createEscrow via viem
-  throw new Error('Real escrow creation not implemented');
+  try {
+    const wallet = getWalletClient();
+    const pub = getPublicClient();
+    const factory = activeChain.factoryAddress;
+
+    // Check if escrow already exists (idempotent)
+    const existing = await pub.readContract({
+      address: factory,
+      abi: FACTORY_ABI,
+      functionName: 'getEscrow',
+      args: [params.repoKeyHash, params.issueNumber],
+    });
+
+    if (existing && existing !== '0x0000000000000000000000000000000000000000') {
+      console.log(`[escrow] Escrow already exists at ${existing}`);
+      return {
+        escrowAddress: existing as Address,
+        txHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+      };
+    }
+
+    const txHash = await wallet.writeContract({
+      address: factory,
+      abi: FACTORY_ABI,
+      functionName: 'createEscrow',
+      args: [
+        params.repoKeyHash,
+        params.issueNumber,
+        params.policyHash,
+        params.asset,
+        params.cap,
+        params.expiry,
+      ],
+      chain: null,
+    });
+
+    const receipt = await pub.waitForTransactionReceipt({ hash: txHash });
+    console.log(`[escrow] Create confirmed: tx=${txHash} block=${receipt.blockNumber}`);
+
+    // Read the deployed escrow address
+    const escrowAddress = await pub.readContract({
+      address: factory,
+      abi: FACTORY_ABI,
+      functionName: 'getEscrow',
+      args: [params.repoKeyHash, params.issueNumber],
+    });
+
+    return { escrowAddress: escrowAddress as Address, txHash };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[escrow] Create failed: ${msg}`);
+    throw new Error(`Escrow creation failed: ${msg}`);
+  }
 }
 
-// =============================================================
-//                       RELEASE (PAYOUT)
-// =============================================================
+// --- Verify balance ---
+
+export async function verifyEscrowBalance(
+  escrowAddress: Address,
+  asset: Address,
+  _chainId: number
+): Promise<bigint> {
+  if (MOCK_MODE) return 0n;
+
+  try {
+    const pub = getPublicClient();
+    return await pub.readContract({
+      address: asset,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [escrowAddress],
+    }) as bigint;
+  } catch {
+    return 0n;
+  }
+}
+
+// --- Release ---
 
 export interface ReleaseConfig {
   escrowAddress: Address;
@@ -139,38 +228,64 @@ export interface ReleaseResult {
   error?: string;
 }
 
-/**
- * Release funds from escrow by calling IssueEscrow.release()
- * Uses mock mode in development.
- */
-export async function releaseEscrow(config: ReleaseConfig): Promise<ReleaseResult> {
-  if (MOCK_MODE) {
-    return mockRelease(config);
-  }
-  return realRelease(config);
-}
-
 async function mockRelease(config: ReleaseConfig): Promise<ReleaseResult> {
   await new Promise((resolve) => setTimeout(resolve, 100));
-
   const txHash = keccak256(
     toHex(`mock-release:${config.escrowAddress}:${config.cart.amount}:${Date.now()}`)
   );
-
   console.log(`[escrow] Mock release: escrow=${config.escrowAddress}, amount=${config.cart.amount}, recipient=${config.cart.recipient}`);
-
   return { success: true, txHash };
 }
 
-async function realRelease(_config: ReleaseConfig): Promise<ReleaseResult> {
-  // In production, this would:
-  // 1. Create wallet client with agent private key
-  // 2. Encode release() calldata with intent, intentSig, cart, cartSig
-  // 3. Send transaction
-  // 4. Wait for confirmation and check for Released event
-  // 5. Return txHash
-  return {
-    success: false,
-    error: 'Real escrow release not implemented - use ESCROW_MOCK_MODE=true',
-  };
+async function realRelease(config: ReleaseConfig): Promise<ReleaseResult> {
+  try {
+    const wallet = getWalletClient();
+    const pub = getPublicClient();
+
+    const intentTuple = {
+      chainId: config.intent.chainId,
+      repoKeyHash: config.intent.repoKeyHash,
+      issueNumber: config.intent.issueNumber,
+      asset: config.intent.asset,
+      cap: config.intent.cap,
+      expiry: config.intent.expiry,
+      policyHash: config.intent.policyHash,
+      nonce: config.intent.nonce,
+    };
+
+    const cartTuple = {
+      intentHash: config.cart.intentHash,
+      mergeSha: config.cart.mergeSha,
+      prNumber: config.cart.prNumber,
+      recipient: config.cart.recipient,
+      amount: config.cart.amount,
+      nonce: config.cart.nonce,
+    };
+
+    const txHash = await wallet.writeContract({
+      address: config.escrowAddress,
+      abi: ESCROW_ABI,
+      functionName: 'release',
+      args: [intentTuple, config.intentSig, cartTuple, config.cartSig],
+      chain: null,
+    });
+
+    const receipt = await pub.waitForTransactionReceipt({ hash: txHash });
+    console.log(`[escrow] Release confirmed: tx=${txHash} block=${receipt.blockNumber}`);
+
+    if (receipt.status !== 'success') {
+      return { success: false, txHash, error: 'Release transaction reverted' };
+    }
+
+    return { success: true, txHash };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[escrow] Release failed: ${msg}`);
+    return { success: false, error: msg };
+  }
+}
+
+export async function releaseEscrow(config: ReleaseConfig): Promise<ReleaseResult> {
+  if (MOCK_MODE) return mockRelease(config);
+  return realRelease(config);
 }
