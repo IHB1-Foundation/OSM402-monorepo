@@ -4,19 +4,26 @@ import { requireSecret } from './authSecret.js';
 
 const TEST_SECRET = 'my-shared-secret-123';
 
+type MockRes = Response & {
+  statusCode: number;
+  body: unknown;
+  status(this: MockRes, code: number): MockRes;
+  json(this: MockRes, data: unknown): void;
+};
+
 function mockReqRes(headers: Record<string, string> = {}) {
   const req = { headers } as unknown as Request;
   const res = {
     statusCode: 0,
     body: null as unknown,
-    status(code: number) {
+    status(this: MockRes, code: number) {
       this.statusCode = code;
       return this;
     },
-    json(data: unknown) {
+    json(this: MockRes, data: unknown) {
       this.body = data;
     },
-  } as unknown as Response & { statusCode: number; body: unknown };
+  } as unknown as MockRes;
   return { req, res };
 }
 

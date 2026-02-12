@@ -96,7 +96,6 @@ export async function fetchPrFiles(
 
   const files: string[] = [];
   let page = 1;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const url = `${GITHUB_API}/repos/${repoKey}/pulls/${prNumber}/files?per_page=100&page=${page}`;
     const res = await fetch(url, { headers: headers() });
@@ -129,7 +128,6 @@ export async function fetchCheckRuns(
 
   const results: Record<string, string> = {};
   let page = 1;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const url = `${GITHUB_API}/repos/${repoKey}/commits/${sha}/check-runs?per_page=100&page=${page}`;
     const res = await fetch(url, { headers: headers() });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { keccak256, toHex, encodePacked } from 'viem';
+import { keccak256, toHex } from 'viem';
 import {
   createIntent,
   createCart,

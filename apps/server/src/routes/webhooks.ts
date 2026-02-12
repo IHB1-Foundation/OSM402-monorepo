@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import crypto from 'node:crypto';
 import { keccak256, toHex } from 'viem';
 import { isDeliveryProcessed, recordDelivery } from '../store/events.js';
@@ -7,7 +8,7 @@ import { handlePrOpened, handlePrSynchronize } from '../handlers/prEvent.js';
 import { handleMergeDetected } from '../handlers/mergeDetected.js';
 import { handleAddressClaim } from '../handlers/addressClaim.js';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 /**
  * Verify GitHub webhook signature (X-Hub-Signature-256)

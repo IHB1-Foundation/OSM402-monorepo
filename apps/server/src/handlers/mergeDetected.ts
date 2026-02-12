@@ -49,7 +49,6 @@ export interface MergeResult {
 
 interface IssueRecord {
   bountyCap: string;
-  [key: string]: unknown;
 }
 
 /**

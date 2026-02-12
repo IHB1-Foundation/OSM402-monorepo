@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { z } from 'zod';
 import { keccak256, toHex, type Address } from 'viem';
 import { requirePayment, type X402Request } from '../middleware/x402.js';
@@ -11,7 +12,7 @@ import {
 import { depositToEscrow, createEscrow } from '../services/escrow.js';
 import { activeChain } from '../config/chains.js';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 /**
  * Request body schema for /api/fund
@@ -22,8 +23,6 @@ const FundRequestSchema = z.object({
   bountyCapUsd: z.number().positive(),
   policyYaml: z.string().optional(), // Raw YAML content for computing policyHash
 });
-
-type FundRequest = z.infer<typeof FundRequestSchema>;
 
 /**
  * Parse bounty amount from label (e.g., "bounty:$10" -> 10_000_000 USDC units)

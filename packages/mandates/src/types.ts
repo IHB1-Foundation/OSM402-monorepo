@@ -41,7 +41,7 @@ export interface EIP712Domain {
  */
 export interface TypedData<T> {
   domain: EIP712Domain;
-  types: Record<string, Array<{ name: string; type: string }>>;
+  types: Record<string, ReadonlyArray<{ name: string; type: string }>>;
   primaryType: string;
   message: T;
 }

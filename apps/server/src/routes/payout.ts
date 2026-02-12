@@ -5,6 +5,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import { z } from 'zod';
 import type { Address, Hex } from 'viem';
 import { getPayout, updatePayout, acquirePayoutLock, releasePayoutLock } from '../store/payouts.js';
@@ -14,7 +15,7 @@ import { generateCartMandate } from '../services/mandate.js';
 import { postIssueComment } from '../services/github.js';
 import { paidComment } from '../services/comments.js';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 const ExecuteSchema = z.object({
   repoKey: z.string().regex(/^[^/]+\/[^/]+$/),
