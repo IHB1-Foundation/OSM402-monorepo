@@ -14,6 +14,7 @@ export interface IssueRecord {
   asset: string;
   chainId: number;
   policyHash: string;
+  expiry?: number; // unix seconds
   escrowAddress?: string;
   intentHash?: string;
   fundingTxHash?: string;
@@ -25,6 +26,7 @@ export interface IssueRecord {
 function toRecord(row: Record<string, unknown>): IssueRecord {
   return {
     ...row,
+    expiry: row.expiry ? Number(row.expiry) : undefined,
     createdAt: new Date(row.createdAt as string),
     fundedAt: row.fundedAt ? new Date(row.fundedAt as string) : undefined,
   } as IssueRecord;
@@ -43,13 +45,14 @@ export function getIssue(repoKey: string, issueNumber: number): IssueRecord | un
 export function upsertIssue(issue: IssueRecord): IssueRecord {
   const db = getDb();
   db.prepare(`
-    INSERT INTO issues (id, repoKey, issueNumber, bountyCap, asset, chainId, policyHash, escrowAddress, intentHash, fundingTxHash, status, createdAt, fundedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO issues (id, repoKey, issueNumber, bountyCap, asset, chainId, policyHash, expiry, escrowAddress, intentHash, fundingTxHash, status, createdAt, fundedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(repoKey, issueNumber) DO UPDATE SET
       bountyCap = excluded.bountyCap,
       asset = excluded.asset,
       chainId = excluded.chainId,
       policyHash = excluded.policyHash,
+      expiry = COALESCE(excluded.expiry, issues.expiry),
       escrowAddress = COALESCE(excluded.escrowAddress, issues.escrowAddress),
       intentHash = COALESCE(excluded.intentHash, issues.intentHash),
       fundingTxHash = COALESCE(excluded.fundingTxHash, issues.fundingTxHash),
@@ -58,6 +61,7 @@ export function upsertIssue(issue: IssueRecord): IssueRecord {
   `).run(
     issue.id, issue.repoKey, issue.issueNumber, issue.bountyCap,
     issue.asset, issue.chainId, issue.policyHash,
+    issue.expiry ?? null,
     issue.escrowAddress ?? null, issue.intentHash ?? null,
     issue.fundingTxHash ?? null, issue.status,
     issue.createdAt.toISOString(), issue.fundedAt?.toISOString() ?? null,

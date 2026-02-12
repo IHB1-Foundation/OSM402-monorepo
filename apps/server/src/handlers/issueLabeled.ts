@@ -5,7 +5,7 @@
 
 import { keccak256, toHex, type Address } from 'viem';
 import { getIssue, upsertIssue } from '../store/issues.js';
-import { createEscrow } from '../services/escrow.js';
+import { predictEscrowAddress } from '../services/escrow.js';
 import { postIssueComment } from '../services/github.js';
 import { fundingPendingComment } from '../services/comments.js';
 import { activeChain } from '../config/chains.js';
@@ -54,6 +54,8 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload): Promise<
   // Convert USD to USDC units (6 decimals)
   const bountyAmount = BigInt(Math.round(bountyCapUsd * 1_000_000));
   const policyHash = keccak256(toHex('default-policy'));
+  const expiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+  const createdAt = new Date();
 
   // Create PENDING issue record
   upsertIssue({
@@ -64,20 +66,34 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload): Promise<
     asset: activeChain.asset,
     chainId: activeChain.chainId,
     policyHash,
+    expiry,
     status: 'PENDING',
-    createdAt: new Date(),
+    createdAt,
   });
 
-  // Compute deterministic escrow address
+  // Predict escrow address (no transaction)
   const repoKeyHash = keccak256(toHex(repoKey));
-  const { escrowAddress } = await createEscrow({
+  const escrowAddress = await predictEscrowAddress({
     repoKeyHash,
     issueNumber: BigInt(issueNumber),
     policyHash: policyHash as `0x${string}`,
     asset: activeChain.asset as Address,
     cap: bountyAmount,
-    expiry: BigInt(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60),
+    expiry: BigInt(expiry),
     chainId: activeChain.chainId,
+  });
+  upsertIssue({
+    id: issueKey,
+    repoKey,
+    issueNumber,
+    bountyCap: bountyAmount.toString(),
+    asset: activeChain.asset,
+    chainId: activeChain.chainId,
+    policyHash,
+    expiry,
+    escrowAddress,
+    status: 'PENDING',
+    createdAt,
   });
 
   // Post comment on GitHub issue

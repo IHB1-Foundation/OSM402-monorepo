@@ -17,7 +17,9 @@ import { activeChain } from '../config/chains.js';
 const FACTORY_ABI = parseAbi([
   'function createEscrow(bytes32 repoKeyHash, uint256 issueNumber, bytes32 policyHash, address asset, uint256 cap, uint256 expiry) external returns (address)',
   'function getEscrow(bytes32 repoKeyHash, uint256 issueNumber) external view returns (address)',
-  'function computeEscrowAddress(bytes32 repoKeyHash, uint256 issueNumber, bytes32 policyHash, address asset, uint256 cap, uint256 expiry) external view returns (address)',
+  'function defaultMaintainerSigner() external view returns (address)',
+  'function defaultAgentSigner() external view returns (address)',
+  'function computeEscrowAddress(bytes32 repoKeyHash, uint256 issueNumber, bytes32 policyHash, address asset, uint256 cap, uint256 expiry, address maintainerSigner, address agentSigner) external view returns (address)',
 ]);
 
 const ERC20_ABI = parseAbi([
@@ -187,6 +189,67 @@ export async function createEscrow(params: {
     console.error(`[escrow] Create failed: ${msg}`);
     throw new Error(`Escrow creation failed: ${msg}`);
   }
+}
+
+/**
+ * Predict the escrow address without creating it.
+ * Useful for x402 requirements / GitHub comments before funding.
+ */
+export async function predictEscrowAddress(params: {
+  repoKeyHash: Hex;
+  issueNumber: bigint;
+  policyHash: Hex;
+  asset: Address;
+  cap: bigint;
+  expiry: bigint;
+  chainId: number;
+}): Promise<Address> {
+  if (MOCK_MODE) {
+    return `0x${keccak256(
+      toHex(`escrow:${params.repoKeyHash}:${params.issueNumber}:${params.policyHash}`)
+    ).slice(26)}` as Address;
+  }
+
+  const factory = activeChain.factoryAddress;
+  if (!factory || factory === '0x0000000000000000000000000000000000000000') {
+    return `0x${keccak256(
+      toHex(`escrow:${params.repoKeyHash}:${params.issueNumber}:${params.policyHash}`)
+    ).slice(26)}` as Address;
+  }
+
+  const pub = getPublicClient();
+
+  const maintainerSigner = await pub.readContract({
+    address: factory,
+    abi: FACTORY_ABI,
+    functionName: 'defaultMaintainerSigner',
+    args: [],
+  }) as Address;
+
+  const agentSigner = await pub.readContract({
+    address: factory,
+    abi: FACTORY_ABI,
+    functionName: 'defaultAgentSigner',
+    args: [],
+  }) as Address;
+
+  const predicted = await pub.readContract({
+    address: factory,
+    abi: FACTORY_ABI,
+    functionName: 'computeEscrowAddress',
+    args: [
+      params.repoKeyHash,
+      params.issueNumber,
+      params.policyHash,
+      params.asset,
+      params.cap,
+      params.expiry,
+      maintainerSigner,
+      agentSigner,
+    ],
+  });
+
+  return predicted as Address;
 }
 
 // --- Verify balance ---

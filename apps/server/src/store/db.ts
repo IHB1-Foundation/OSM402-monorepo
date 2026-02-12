@@ -31,6 +31,7 @@ function migrate(db: Database.Database): void {
       asset         TEXT NOT NULL,
       chainId       INTEGER NOT NULL,
       policyHash    TEXT NOT NULL,
+      expiry        INTEGER,
       escrowAddress TEXT,
       intentHash    TEXT,
       fundingTxHash TEXT,
@@ -90,6 +91,16 @@ function migrate(db: Database.Database): void {
       createdAt   TEXT NOT NULL
     );
   `);
+
+  // Lightweight migrations for existing DBs (CREATE TABLE IF NOT EXISTS won't add new columns)
+  ensureColumn(db, 'issues', 'expiry', 'INTEGER');
+}
+
+function ensureColumn(db: Database.Database, table: string, column: string, type: string): void {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  const exists = rows.some((r) => r.name === column);
+  if (exists) return;
+  db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
 }
 
 /** Close the database (for graceful shutdown / tests). */

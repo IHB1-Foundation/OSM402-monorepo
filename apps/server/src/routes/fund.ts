@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Router as ExpressRouter } from 'express';
 import { z } from 'zod';
 import { keccak256, toHex, type Address } from 'viem';
+import { createIntent, hashIntent } from '@gitpay/mandates';
 import { requirePayment, type X402Request } from '../middleware/x402.js';
 import {
   getIssue,
@@ -9,7 +10,7 @@ import {
   markIssueFunded,
   type IssueRecord,
 } from '../store/issues.js';
-import { depositToEscrow, createEscrow } from '../services/escrow.js';
+import { depositToEscrow, createEscrow, predictEscrowAddress } from '../services/escrow.js';
 import { activeChain } from '../config/chains.js';
 
 const router: ExpressRouter = Router();
@@ -47,18 +48,6 @@ function computePolicyHash(policyYaml?: string): string {
 }
 
 /**
- * Compute deterministic escrow address (placeholder)
- * In production, this would call the factory contract
- */
-function computeEscrowAddress(repoKey: string, issueNumber: number, policyHash: string): string {
-  const salt = keccak256(
-    toHex(`${repoKey}#${issueNumber}#${policyHash}`)
-  );
-  // Placeholder address - would be computed by factory in production
-  return `0x${salt.slice(26)}`; // Take last 40 chars as mock address
-}
-
-/**
  * POST /api/fund
  *
  * 1. If issue not in store, create PENDING record
@@ -81,6 +70,7 @@ router.post(
     const { repoKey, issueNumber, bountyCapUsd, policyYaml } = parseResult.data;
     const bountyAmount = parseBountyLabel(bountyCapUsd);
     const policyHash = computePolicyHash(policyYaml);
+    const defaultExpiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days
 
     // Check if issue already exists
     let issue = getIssue(repoKey, issueNumber);
@@ -108,20 +98,45 @@ router.post(
         asset: activeChain.asset,
         chainId: activeChain.chainId,
         policyHash,
+        expiry: defaultExpiry,
         status: 'PENDING',
         createdAt: new Date(),
+      });
+    } else if (!issue.expiry) {
+      issue = upsertIssue({
+        ...issue,
+        expiry: defaultExpiry,
       });
     }
 
     // Store issue data in request for use after payment
     (req as X402Request & { issueData: IssueRecord }).issueData = issue;
 
+    const repoKeyHash = keccak256(toHex(repoKey));
+    const predictedEscrow = await predictEscrowAddress({
+      repoKeyHash,
+      issueNumber: BigInt(issueNumber),
+      policyHash: policyHash as `0x${string}`,
+      asset: issue.asset as Address,
+      cap: BigInt(issue.bountyCap),
+      expiry: BigInt(issue.expiry ?? defaultExpiry),
+      chainId: issue.chainId,
+    });
+
+    if (!issue.escrowAddress) {
+      issue = upsertIssue({
+        ...issue,
+        escrowAddress: predictedEscrow,
+      });
+      (req as X402Request & { issueData: IssueRecord }).issueData = issue;
+    }
+
     // Apply x402 middleware
     const paymentMiddleware = requirePayment({
       amount: bountyAmount,
-      asset: activeChain.asset,
-      chainId: activeChain.chainId,
-      recipient: computeEscrowAddress(repoKey, issueNumber, policyHash),
+      asset: issue.asset,
+      chainId: issue.chainId,
+      recipient: predictedEscrow,
       description: `Fund bounty for ${repoKey}#${issueNumber}`,
     });
 
@@ -145,6 +160,8 @@ router.post(
     const repoKeyHash = keccak256(toHex(issue.repoKey));
     const policyHashHex = issue.policyHash as `0x${string}`;
 
+    const expiry = BigInt(issue.expiry ?? (Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60));
+
     // Create escrow via factory (or get deterministic address)
     const { escrowAddress, txHash: createTxHash } = await createEscrow({
       repoKeyHash,
@@ -152,7 +169,7 @@ router.post(
       policyHash: policyHashHex,
       asset: issue.asset as Address,
       cap: BigInt(issue.bountyCap),
-      expiry: BigInt(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60), // 30 days
+      expiry,
       chainId: issue.chainId,
     });
 
@@ -172,10 +189,19 @@ router.post(
       return;
     }
 
-    // Compute intent hash
-    const intentHash = keccak256(
-      toHex(`intent:${issue.repoKey}#${issue.issueNumber}:${receipt.paymentHash}`)
-    );
+    // Compute EIP-712 intent hash (must match onchain)
+    const intent = createIntent({
+      chainId: BigInt(issue.chainId),
+      repoKeyHash: repoKeyHash as `0x${string}`,
+      issueNumber: BigInt(issue.issueNumber),
+      asset: issue.asset as Address,
+      cap: BigInt(issue.bountyCap),
+      expiry,
+      policyHash: policyHashHex,
+      nonce: 0n,
+    });
+
+    const intentHash = hashIntent(intent, escrowAddress, BigInt(issue.chainId));
 
     // Mark issue as funded with deposit txHash
     const fundedIssue = markIssueFunded(
