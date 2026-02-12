@@ -390,4 +390,252 @@ contract IssueEscrowTest is Test {
         vm.expectRevert(IssueEscrow.InvalidIntentSignature.selector);
         escrow.release(intent, intentSig, cart, cartSig);
     }
+
+    // =========================================================================
+    // GP-011: Additional EIP-712 signature verification tests
+    // =========================================================================
+
+    function test_EIP712_DomainSeparator() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+
+        // Compute expected domain separator
+        bytes32 expectedDomainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("GitPay"),
+                keccak256("1"),
+                block.chainid,
+                escrowAddr
+            )
+        );
+
+        assertEq(escrow.DOMAIN_SEPARATOR(), expectedDomainSeparator);
+    }
+
+    function test_EIP712_TypeHashes() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+
+        // Verify intent typehash
+        bytes32 expectedIntentTypehash = keccak256(
+            "Intent(uint256 chainId,bytes32 repoKeyHash,uint256 issueNumber,address asset,uint256 cap,uint256 expiry,bytes32 policyHash,uint256 nonce)"
+        );
+        assertEq(escrow.INTENT_TYPEHASH(), expectedIntentTypehash);
+
+        // Verify cart typehash
+        bytes32 expectedCartTypehash = keccak256(
+            "Cart(bytes32 intentHash,bytes32 mergeSha,uint256 prNumber,address recipient,uint256 amount,uint256 nonce)"
+        );
+        assertEq(escrow.CART_TYPEHASH(), expectedCartTypehash);
+    }
+
+    function test_Release_RevertOnInvalidCartSignature() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap);
+
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        // Correct maintainer signature on intent
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: intentHash,
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        // Wrong signer for cart (maintainer instead of agent)
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(maintainerPk, cartHash); // Wrong signer!
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.InvalidCartSignature.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_Release_RevertOnMalformedSignature() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap);
+
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        // Malformed signature (wrong length)
+        bytes memory malformedSig = abi.encodePacked(bytes32(0), bytes32(0)); // 64 bytes instead of 65
+
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: escrow.hashIntent(intent),
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.InvalidIntentSignature.selector);
+        escrow.release(intent, malformedSig, cart, cartSig);
+    }
+
+    function test_Release_RevertOnWrongIntentHash() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+        token.mint(escrowAddr, cap);
+
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        bytes32 intentHash = escrow.hashIntent(intent);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(maintainerPk, intentHash);
+        bytes memory intentSig = abi.encodePacked(r1, s1, v1);
+
+        // Cart with wrong intentHash
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: keccak256("wrong-intent-hash"), // Wrong!
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        bytes32 cartHash = escrow.hashCart(cart);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(agentPk, cartHash);
+        bytes memory cartSig = abi.encodePacked(r2, s2, v2);
+
+        vm.expectRevert(IssueEscrow.InvalidIntentHash.selector);
+        escrow.release(intent, intentSig, cart, cartSig);
+    }
+
+    function test_HashIntent_Deterministic() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+
+        IIssueEscrow.Intent memory intent = IIssueEscrow.Intent({
+            chainId: block.chainid,
+            repoKeyHash: repoKeyHash,
+            issueNumber: issueNumber,
+            asset: address(token),
+            cap: cap,
+            expiry: expiry,
+            policyHash: policyHash,
+            nonce: 1
+        });
+
+        bytes32 hash1 = escrow.hashIntent(intent);
+        bytes32 hash2 = escrow.hashIntent(intent);
+
+        assertEq(hash1, hash2, "hashIntent should be deterministic");
+    }
+
+    function test_HashCart_Deterministic() public {
+        address escrowAddr = factory.createEscrow(
+            repoKeyHash,
+            issueNumber,
+            policyHash,
+            address(token),
+            cap,
+            expiry
+        );
+
+        IssueEscrow escrow = IssueEscrow(escrowAddr);
+
+        IIssueEscrow.Cart memory cart = IIssueEscrow.Cart({
+            intentHash: keccak256("test"),
+            mergeSha: keccak256("abc123"),
+            prNumber: 1,
+            recipient: recipient,
+            amount: 50 * 1e6,
+            nonce: 1
+        });
+
+        bytes32 hash1 = escrow.hashCart(cart);
+        bytes32 hash2 = escrow.hashCart(cart);
+
+        assertEq(hash1, hash2, "hashCart should be deterministic");
+    }
 }

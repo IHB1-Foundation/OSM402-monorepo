@@ -127,7 +127,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Add EIP-712 domain separator and typed-data hashing for Intent/Cart.
 - Tasks:
