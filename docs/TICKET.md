@@ -404,7 +404,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Ensure repeated webhook deliveries do not double-pay.
 - Tasks:

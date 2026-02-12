@@ -7,7 +7,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { Address, Hex } from 'viem';
-import { getPayout, updatePayout } from '../store/payouts.js';
+import { getPayout, updatePayout, acquirePayoutLock, releasePayoutLock } from '../store/payouts.js';
 import { getIssue, updateIssueStatus } from '../store/issues.js';
 import { releaseEscrow } from '../services/escrow.js';
 import { generateCartMandate } from '../services/mandate.js';
@@ -51,6 +51,14 @@ router.post('/execute', async (req: Request, res: Response) => {
     res.status(409).json({ error: `Invalid payout status: ${payout.status}` });
     return;
   }
+
+  // Acquire execution lock to prevent concurrent execution
+  if (!acquirePayoutLock(repoKey, prNumber)) {
+    res.status(409).json({ error: 'Payout execution already in progress' });
+    return;
+  }
+
+  try {
 
   // Get issue for escrow info
   const issue = getIssue(repoKey, payout.issueNumber);
@@ -149,6 +157,10 @@ router.post('/execute', async (req: Request, res: Response) => {
       intentHash: issue.intentHash,
     },
   });
+
+  } finally {
+    releasePayoutLock(repoKey, prNumber);
+  }
 });
 
 export default router;

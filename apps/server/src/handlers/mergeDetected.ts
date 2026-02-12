@@ -5,7 +5,7 @@
 
 import { getPr, updatePr } from '../store/prs.js';
 import { getIssue } from '../store/issues.js';
-import { upsertPayout, getPayout } from '../store/payouts.js';
+import { createPayout, getPayout } from '../store/payouts.js';
 import { postIssueComment } from '../services/github.js';
 import { holdComment } from '../services/comments.js';
 import { generateCartMandate } from '../services/mandate.js';
@@ -179,9 +179,9 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     console.log(`[merge] Cart mandate generated: cartHash=${cartHash}`);
   }
 
-  // Create payout record
+  // Create payout record (enforces uniqueness per issue)
   const payoutStatus = holdResult.shouldHold ? 'HOLD' : 'PENDING';
-  upsertPayout({
+  const payoutRecord = createPayout({
     id: `payout-${repoKey}#PR${prNumber}`,
     issueKey: `${repoKey}#${linkedIssue}`,
     prKey: `${repoKey}#PR${prNumber}`,
@@ -200,6 +200,11 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     createdAt: new Date(),
     updatedAt: new Date(),
   });
+
+  if (!payoutRecord) {
+    console.log(`[merge] Duplicate payout rejected for ${repoKey}#PR${prNumber}`);
+    return { handled: true, merged: true, reason: 'payout_already_exists', payoutStatus: 'duplicate' };
+  }
 
   console.log(`[merge] Payout created for ${repoKey}#PR${prNumber}: $${cappedAmount} (${payoutStatus})`);
 
