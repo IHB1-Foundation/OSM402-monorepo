@@ -7,7 +7,12 @@ import payoutRouter from './routes/payout.js';
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req: express.Request, _res, buf) => {
+    // Preserve raw body buffer for webhook signature verification
+    (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+  },
+}));
 
 // Fund endpoint
 app.use('/api/fund', fundRouter);

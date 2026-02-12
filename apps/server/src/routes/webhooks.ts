@@ -8,18 +8,14 @@ import { handleMergeDetected } from '../handlers/mergeDetected.js';
 
 const router = Router();
 
-const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET || '';
-
 /**
  * Verify GitHub webhook signature (X-Hub-Signature-256)
- * Uses HMAC-SHA256 with the configured webhook secret
+ * Uses HMAC-SHA256 with the configured webhook secret against the raw request body.
+ * Fails closed: rejects if no secret is configured (even in dev).
  */
-function verifySignature(payload: string, signature: string | undefined): boolean {
-  if (!webhookSecret) {
-    // In dev mode without secret, skip verification
-    if (process.env.NODE_ENV !== 'production') {
-      return true;
-    }
+export function verifySignature(payload: Buffer, signature: string | undefined): boolean {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET || '';
+  if (!secret) {
     return false;
   }
 
@@ -28,9 +24,13 @@ function verifySignature(payload: string, signature: string | undefined): boolea
   }
 
   const expected = 'sha256=' + crypto
-    .createHmac('sha256', webhookSecret)
-    .update(payload, 'utf8')
+    .createHmac('sha256', secret)
+    .update(payload)
     .digest('hex');
+
+  if (signature.length !== expected.length) {
+    return false;
+  }
 
   return crypto.timingSafeEqual(
     Buffer.from(signature),
@@ -46,13 +46,17 @@ function verifySignature(payload: string, signature: string | undefined): boolea
  * - Deduplicates by X-GitHub-Delivery
  * - Routes events to handlers
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request & { rawBody?: Buffer }, res: Response) => {
   const signature = req.headers['x-hub-signature-256'] as string | undefined;
   const deliveryId = req.headers['x-github-delivery'] as string | undefined;
   const eventType = req.headers['x-github-event'] as string | undefined;
 
-  // Verify signature
-  const rawBody = JSON.stringify(req.body);
+  // Verify signature using the original raw body captured before JSON parsing
+  const rawBody = req.rawBody;
+  if (!rawBody) {
+    res.status(500).json({ error: 'Raw body not captured' });
+    return;
+  }
   if (!verifySignature(rawBody, signature)) {
     res.status(401).json({ error: 'Invalid webhook signature' });
     return;
@@ -70,8 +74,8 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  // Record delivery
-  const payloadHash = keccak256(toHex(new TextEncoder().encode(rawBody)));
+  // Record delivery (hash from raw body bytes)
+  const payloadHash = keccak256(toHex(new Uint8Array(rawBody)));
   recordDelivery({
     id: `evt-${Date.now()}`,
     deliveryId,
