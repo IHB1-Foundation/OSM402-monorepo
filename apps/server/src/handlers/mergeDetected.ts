@@ -6,12 +6,11 @@
 import { getPr, updatePr } from '../store/prs.js';
 import { getIssue } from '../store/issues.js';
 import { createPayout, getPayout, updatePayout, acquirePayoutLock, releasePayoutLock } from '../store/payouts.js';
-// updateIssueStatus is used in payout route; kept import path visible for reference
-import { postIssueComment } from '../services/github.js';
+import { postIssueComment, fetchRepoFile, fetchPrFiles, fetchCheckRuns } from '../services/github.js';
 import { holdComment, paidComment } from '../services/comments.js';
 import { generateCartMandate } from '../services/mandate.js';
 import { releaseEscrow } from '../services/escrow.js';
-import type { DiffSummary, PayoutResult } from '@gitpay/policy';
+import type { DiffSummary, PayoutResult, Policy } from '@gitpay/policy';
 import type { Address, Hex } from 'viem';
 
 interface PrClosedPayload {
@@ -47,6 +46,30 @@ export interface MergeResult {
   cartHash?: string;
 }
 
+interface IssueRecord {
+  bountyCap: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Build a fallback policy when .gitpay.yml is missing or invalid.
+ */
+function buildDefaultPolicy(issue: IssueRecord): Policy {
+  return {
+    version: 1,
+    payout: {
+      mode: 'fixed' as const,
+      fixedAmountUsd: parseFloat(issue.bountyCap) / 1_000_000,
+    },
+    holdIf: [
+      {
+        rule: 'touchesPaths' as const,
+        any: ['.github/workflows/**', 'pnpm-lock.yaml', 'package-lock.json'],
+      },
+    ],
+  };
+}
+
 /**
  * Extract linked issue number from PR body
  */
@@ -57,18 +80,35 @@ function extractLinkedIssue(body: string | null): number | undefined {
 }
 
 /**
- * Check required checks pass (MVP: always pass unless configured)
- * In production, this would query the GitHub API for check suite statuses
+ * Check required checks pass by querying GitHub check-runs API.
+ * Falls back to pass-through if no token is available.
  */
 async function verifyRequiredChecks(
-  _repoKey: string,
-  _sha: string,
-  _requiredChecks: string[],
+  repoKey: string,
+  sha: string,
+  requiredChecks: string[],
 ): Promise<{ passed: boolean; missing: string[] }> {
-  // MVP: skip check verification (no GitHub API token configured yet)
-  // In production, query: GET /repos/{owner}/{repo}/commits/{ref}/check-runs
-  console.log('[merge] Required checks verification skipped (MVP mode)');
-  return { passed: true, missing: [] };
+  if (requiredChecks.length === 0) {
+    return { passed: true, missing: [] };
+  }
+
+  const checkRuns = await fetchCheckRuns(repoKey, sha);
+  if (Object.keys(checkRuns).length === 0) {
+    // No token or API error — fail open with warning for MVP
+    console.log('[merge] Could not fetch check runs (no token?), skipping verification');
+    return { passed: true, missing: [] };
+  }
+
+  const missing: string[] = [];
+  for (const name of requiredChecks) {
+    const conclusion = checkRuns[name];
+    if (!conclusion || conclusion !== 'success') {
+      missing.push(`${name} (${conclusion ?? 'not found'})`);
+    }
+  }
+
+  console.log(`[merge] Required checks: ${requiredChecks.join(', ')} → missing: ${missing.length === 0 ? 'none' : missing.join(', ')}`);
+  return { passed: missing.length === 0, missing };
 }
 
 export async function handleMergeDetected(payload: PrClosedPayload): Promise<MergeResult> {
@@ -121,31 +161,44 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     return { handled: true, merged: true, reason: 'payout_already_exists', payoutStatus: existingPayout.status };
   }
 
-  // Build diff summary for policy evaluation
+  // Fetch PR changed files from GitHub API (fallback to stored diff)
+  const changedFiles = await fetchPrFiles(repoKey, prNumber);
+  const filesChanged = changedFiles.length > 0
+    ? changedFiles
+    : prRecord?.diff?.changedFiles ?? [];
+
   const diff: DiffSummary = {
-    filesChanged: prRecord?.diff?.changedFiles ?? [],
+    filesChanged,
     additions: pr.additions ?? prRecord?.diff?.additions ?? 0,
     deletions: pr.deletions ?? prRecord?.diff?.deletions ?? 0,
   };
 
-  // Evaluate payout and HOLD using policy engine
-  // MVP: use default policy since we don't have the policy file from the repo
-  const { calculatePayout, evaluateHoldWithRiskFlags } = await import('@gitpay/policy');
-  const defaultPolicy = {
-    version: 1,
-    payout: {
-      mode: 'fixed' as const,
-      fixedAmountUsd: parseFloat(issue.bountyCap) / 1_000_000,
-    },
-    holdIf: [
-      {
-        rule: 'touchesPaths' as const,
-        any: ['.github/workflows/**', 'pnpm-lock.yaml', 'package-lock.json'],
-      },
-    ],
-  };
+  // Update PR record with fetched file list
+  if (changedFiles.length > 0 && prRecord?.diff) {
+    updatePr(repoKey, prNumber, {
+      diff: { ...prRecord.diff, changedFiles },
+    });
+  }
 
-  const payoutResult: PayoutResult = calculatePayout(defaultPolicy, diff);
+  // Load policy from repo's .gitpay.yml (fallback to default)
+  const { parsePolicySafe, calculatePayout, evaluateHoldWithRiskFlags } = await import('@gitpay/policy');
+  let policy: Policy;
+  const policyYaml = await fetchRepoFile(repoKey, '.gitpay.yml', mergeSha);
+  if (policyYaml) {
+    const parsed = parsePolicySafe(policyYaml);
+    if (parsed) {
+      policy = parsed;
+      console.log(`[merge] Loaded .gitpay.yml from ${repoKey}@${mergeSha}`);
+    } else {
+      console.log('[merge] .gitpay.yml parse failed, using default policy');
+      policy = buildDefaultPolicy(issue);
+    }
+  } else {
+    console.log('[merge] .gitpay.yml not found, using default policy');
+    policy = defaultPolicy(issue);
+  }
+
+  const payoutResult: PayoutResult = calculatePayout(policy, diff);
 
   // Run AI review for risk flags (if available)
   let riskFlags: string[] = [];
@@ -163,14 +216,13 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
 
   // Evaluate HOLD with both policy rules and AI risk flags
   const holdResult = evaluateHoldWithRiskFlags(
-    defaultPolicy,
+    policy,
     { filesChanged: diff.filesChanged },
     riskFlags,
   );
 
-  // Check required checks (MVP: pass-through)
-  // In production, requiredChecks would come from the parsed policy
-  const requiredChecks: string[] = [];
+  // Check required checks from policy
+  const requiredChecks = policy.requiredChecks ?? [];
   if (requiredChecks.length > 0) {
     const checkResult = await verifyRequiredChecks(repoKey, mergeSha, requiredChecks);
     if (!checkResult.passed) {

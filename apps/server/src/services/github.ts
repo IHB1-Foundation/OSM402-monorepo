@@ -1,5 +1,5 @@
 /**
- * Minimal GitHub API client for posting comments.
+ * GitHub API client for posting comments and reading repo data.
  * Uses GITHUB_TOKEN or GITHUB_APP installation token.
  */
 
@@ -7,6 +7,16 @@ const GITHUB_API = 'https://api.github.com';
 
 function getToken(): string | undefined {
   return process.env.GITHUB_TOKEN || process.env.GITHUB_APP_TOKEN;
+}
+
+function headers(): Record<string, string> {
+  const token = getToken();
+  const h: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
 }
 
 /**
@@ -27,11 +37,7 @@ export async function postIssueComment(
   const url = `${GITHUB_API}/repos/${repoKey}/issues/${issueNumber}/comments`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
+    headers: headers(),
     body: JSON.stringify({ body }),
   });
 
@@ -41,4 +47,103 @@ export async function postIssueComment(
   }
 
   return true;
+}
+
+/**
+ * Fetch a file's content from a repo (e.g. .gitpay.yml).
+ * Returns decoded UTF-8 string or null if not found / no token.
+ */
+export async function fetchRepoFile(
+  repoKey: string,
+  path: string,
+  ref?: string,
+): Promise<string | null> {
+  if (!getToken()) {
+    console.log(`[github] No token — cannot fetch ${repoKey}/${path}`);
+    return null;
+  }
+
+  const url = `${GITHUB_API}/repos/${repoKey}/contents/${path}${ref ? `?ref=${ref}` : ''}`;
+  const res = await fetch(url, { headers: headers() });
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      console.log(`[github] File not found: ${repoKey}/${path}`);
+    } else {
+      console.error(`[github] Failed to fetch file: ${res.status}`);
+    }
+    return null;
+  }
+
+  const data = await res.json() as { content?: string; encoding?: string };
+  if (data.encoding === 'base64' && data.content) {
+    return Buffer.from(data.content, 'base64').toString('utf-8');
+  }
+  return null;
+}
+
+/**
+ * Fetch the list of changed file paths for a PR.
+ */
+export async function fetchPrFiles(
+  repoKey: string,
+  prNumber: number,
+): Promise<string[]> {
+  if (!getToken()) {
+    console.log(`[github] No token — cannot fetch PR files for ${repoKey}#PR${prNumber}`);
+    return [];
+  }
+
+  const files: string[] = [];
+  let page = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const url = `${GITHUB_API}/repos/${repoKey}/pulls/${prNumber}/files?per_page=100&page=${page}`;
+    const res = await fetch(url, { headers: headers() });
+    if (!res.ok) {
+      console.error(`[github] Failed to fetch PR files: ${res.status}`);
+      break;
+    }
+    const items = await res.json() as { filename: string }[];
+    if (items.length === 0) break;
+    files.push(...items.map(f => f.filename));
+    if (items.length < 100) break;
+    page++;
+  }
+
+  return files;
+}
+
+/**
+ * Fetch check-run statuses for a commit SHA.
+ * Returns a map of check-name → conclusion (e.g. "success", "failure", "neutral").
+ */
+export async function fetchCheckRuns(
+  repoKey: string,
+  sha: string,
+): Promise<Record<string, string>> {
+  if (!getToken()) {
+    console.log(`[github] No token — cannot fetch check runs for ${repoKey}@${sha}`);
+    return {};
+  }
+
+  const results: Record<string, string> = {};
+  let page = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const url = `${GITHUB_API}/repos/${repoKey}/commits/${sha}/check-runs?per_page=100&page=${page}`;
+    const res = await fetch(url, { headers: headers() });
+    if (!res.ok) {
+      console.error(`[github] Failed to fetch check runs: ${res.status}`);
+      break;
+    }
+    const data = await res.json() as { check_runs: { name: string; conclusion: string | null }[] };
+    for (const cr of data.check_runs) {
+      results[cr.name] = cr.conclusion ?? 'pending';
+    }
+    if (data.check_runs.length < 100) break;
+    page++;
+  }
+
+  return results;
 }
