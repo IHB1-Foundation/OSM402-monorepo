@@ -13,6 +13,7 @@ import { releaseEscrow } from '../services/escrow.js';
 import { buildReleaseForPayout } from '../services/releaseConfig.js';
 import type { DiffSummary, PayoutResult, Policy } from '@gitpay/policy';
 import { formatUnits, parseUnits, type Address, type Hex } from 'viem';
+import { activeChain } from '../config/chains.js';
 
 interface PrClosedPayload {
   action: 'closed';
