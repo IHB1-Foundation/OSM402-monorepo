@@ -475,7 +475,7 @@ A ticket is DONE only if:
 
 - Type: Docs
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Acceptance Criteria:
   - Example policy file included and referenced in README
 - Dependencies: GP-021
