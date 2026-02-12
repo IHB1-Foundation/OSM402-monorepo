@@ -504,7 +504,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P2
-- Status: TODO
+- Status: DONE
 - Description:
   - Create chain adapter interface and stub SKALE adapter.
 - Acceptance Criteria:
