@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import crypto from 'node:crypto';
 import { keccak256, toHex } from 'viem';
 import { isDeliveryProcessed, recordDelivery } from '../store/events.js';
+import { handleIssueLabeled } from '../handlers/issueLabeled.js';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ function verifySignature(payload: string, signature: string | undefined): boolea
  * - Deduplicates by X-GitHub-Delivery
  * - Routes events to handlers
  */
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   const signature = req.headers['x-hub-signature-256'] as string | undefined;
   const deliveryId = req.headers['x-github-delivery'] as string | undefined;
   const eventType = req.headers['x-github-event'] as string | undefined;
@@ -83,10 +84,11 @@ router.post('/', (req: Request, res: Response) => {
   const eventKey = action ? `${eventType}.${action}` : eventType;
 
   switch (eventKey) {
-    case 'issues.labeled':
-      // Will be handled by GP-041
-      res.json({ received: true, event: eventKey, deliveryId, handler: 'pending' });
+    case 'issues.labeled': {
+      const result = await handleIssueLabeled(req.body);
+      res.json({ received: true, event: eventKey, deliveryId, ...result });
       return;
+    }
 
     case 'pull_request.opened':
     case 'pull_request.synchronize':
