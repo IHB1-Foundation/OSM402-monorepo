@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "echo 'build not configured yet'",
-    "test": "echo 'test not configured yet'"
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "deploy": "forge script script/Deploy.s.sol --broadcast",
+    "clean": "forge clean"
   }
 }

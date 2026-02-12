@@ -62,7 +62,7 @@ A ticket is DONE only if:
 
 - Type: Infra
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Choose Foundry or Hardhat and scaffold contract project.
 - Tasks:
