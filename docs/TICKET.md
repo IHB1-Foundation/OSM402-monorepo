@@ -462,7 +462,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P1
-- Status: TODO
+- Status: DONE
 - Acceptance Criteria:
   - riskFlags can trigger HOLD with reasons
 - Dependencies: GP-023, GP-062

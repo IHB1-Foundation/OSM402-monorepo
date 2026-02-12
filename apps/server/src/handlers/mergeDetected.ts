@@ -130,7 +130,7 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
 
   // Evaluate payout and HOLD using policy engine
   // MVP: use default policy since we don't have the policy file from the repo
-  const { calculatePayout, evaluateHold } = await import('@gitpay/policy');
+  const { calculatePayout, evaluateHoldWithRiskFlags } = await import('@gitpay/policy');
   const defaultPolicy = {
     version: 1,
     payout: {
@@ -146,9 +146,27 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
   };
 
   const payoutResult: PayoutResult = calculatePayout(defaultPolicy, diff);
-  const holdResult = evaluateHold(defaultPolicy, {
-    filesChanged: diff.filesChanged,
-  });
+
+  // Run AI review for risk flags (if available)
+  let riskFlags: string[] = [];
+  if (prRecord) {
+    try {
+      const { runReview } = await import('../services/reviewer.js');
+      const review = await runReview(prRecord);
+      if (review) {
+        riskFlags = review.riskFlags;
+      }
+    } catch {
+      // AI review failure should not block payout
+    }
+  }
+
+  // Evaluate HOLD with both policy rules and AI risk flags
+  const holdResult = evaluateHoldWithRiskFlags(
+    defaultPolicy,
+    { filesChanged: diff.filesChanged },
+    riskFlags,
+  );
 
   // Check required checks (MVP: pass-through)
   // In production, requiredChecks would come from the parsed policy
