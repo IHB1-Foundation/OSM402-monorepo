@@ -1,6 +1,7 @@
 import express from 'express';
 import { config } from './config.js';
 import { requirePayment, type X402Request } from './middleware/x402.js';
+import { requireSecret } from './middleware/authSecret.js';
 import fundRouter from './routes/fund.js';
 import webhooksRouter from './routes/webhooks.js';
 import payoutRouter from './routes/payout.js';
@@ -14,14 +15,14 @@ app.use(express.json({
   },
 }));
 
-// Fund endpoint
-app.use('/api/fund', fundRouter);
+// Fund endpoint (protected by shared secret)
+app.use('/api/fund', requireSecret, fundRouter);
 
-// GitHub webhook endpoint
+// GitHub webhook endpoint (protected by its own HMAC signature verification)
 app.use('/api/webhooks/github', webhooksRouter);
 
-// Payout execution endpoint
-app.use('/api/payout', payoutRouter);
+// Payout execution endpoint (protected by shared secret)
+app.use('/api/payout', requireSecret, payoutRouter);
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {

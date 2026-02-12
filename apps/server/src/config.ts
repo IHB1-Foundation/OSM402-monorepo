@@ -12,6 +12,7 @@ const envSchema = z.object({
     .transform((val) => val === 'true')
     .default('true'),
   GITHUB_WEBHOOK_SECRET: z.string().default(''),
+  GITPAY_ACTION_SHARED_SECRET: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
