@@ -8,7 +8,9 @@ import { getIssue } from '../store/issues.js';
 import { upsertPayout, getPayout } from '../store/payouts.js';
 import { postIssueComment } from '../services/github.js';
 import { holdComment } from '../services/comments.js';
+import { generateCartMandate } from '../services/mandate.js';
 import type { DiffSummary, PayoutResult } from '@gitpay/policy';
+import type { Address, Hex } from 'viem';
 
 interface PrClosedPayload {
   action: 'closed';
@@ -40,6 +42,7 @@ export interface MergeResult {
   holdReasons?: string[];
   amountUsd?: number;
   tier?: string;
+  cartHash?: string;
 }
 
 /**
@@ -159,6 +162,23 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
   // Cap payout at issue bounty cap
   const cappedAmount = Math.min(payoutResult.amountUsd, parseFloat(issue.bountyCap) / 1_000_000);
 
+  // Generate Cart mandate if not held
+  let cartHash: string | undefined;
+  const amountRaw = BigInt(Math.round(cappedAmount * 1_000_000));
+
+  if (!holdResult.shouldHold && issue.intentHash && prRecord?.contributorAddress) {
+    const cartResult = generateCartMandate({
+      intentHash: issue.intentHash as Hex,
+      mergeSha,
+      prNumber,
+      recipient: prRecord.contributorAddress as Address,
+      amountRaw,
+      escrowAddress: issue.escrowAddress as Address | undefined,
+    });
+    cartHash = cartResult.cartHash;
+    console.log(`[merge] Cart mandate generated: cartHash=${cartHash}`);
+  }
+
   // Create payout record
   const payoutStatus = holdResult.shouldHold ? 'HOLD' : 'PENDING';
   upsertPayout({
@@ -171,8 +191,9 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     mergeSha,
     recipient: prRecord?.contributorAddress,
     amountUsd: cappedAmount,
-    amountRaw: BigInt(Math.round(cappedAmount * 1_000_000)).toString(),
+    amountRaw: amountRaw.toString(),
     tier: payoutResult.tier ?? undefined,
+    cartHash,
     intentHash: issue.intentHash,
     holdReasons: holdResult.shouldHold ? holdResult.reasons : undefined,
     status: payoutStatus,
@@ -200,5 +221,6 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     holdReasons: holdResult.shouldHold ? holdResult.reasons : undefined,
     amountUsd: cappedAmount,
     tier: payoutResult.tier ?? undefined,
+    cartHash,
   };
 }
