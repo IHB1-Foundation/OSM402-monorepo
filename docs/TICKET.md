@@ -236,7 +236,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Implement server middleware/handler that:
     - returns `402 Payment Required` for unpaid requests
