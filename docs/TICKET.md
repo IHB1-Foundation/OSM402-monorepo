@@ -484,7 +484,7 @@ A ticket is DONE only if:
 
 - Type: Docs
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Write a step-by-step demo script (3–5 minutes).
 - Acceptance Criteria:
