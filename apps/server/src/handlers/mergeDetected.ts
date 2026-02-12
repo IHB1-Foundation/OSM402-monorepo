@@ -6,6 +6,8 @@
 import { getPr, updatePr } from '../store/prs.js';
 import { getIssue } from '../store/issues.js';
 import { upsertPayout, getPayout } from '../store/payouts.js';
+import { postIssueComment } from '../services/github.js';
+import { holdComment } from '../services/comments.js';
 import type { DiffSummary, PayoutResult } from '@gitpay/policy';
 
 interface PrClosedPayload {
@@ -179,8 +181,16 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
   });
 
   console.log(`[merge] Payout created for ${repoKey}#PR${prNumber}: $${cappedAmount} (${payoutStatus})`);
+
+  // Post comment on PR
   if (holdResult.shouldHold) {
     console.log(`[merge] HOLD reasons: ${holdResult.reasons.join('; ')}`);
+    const comment = holdComment({
+      amountUsd: cappedAmount,
+      reasons: holdResult.reasons,
+      mergeSha,
+    });
+    await postIssueComment(repoKey, prNumber, comment);
   }
 
   return {

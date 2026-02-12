@@ -362,7 +362,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Implement consistent bot comment formatting.
 - Acceptance Criteria:

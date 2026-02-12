@@ -7,6 +7,7 @@ import { keccak256, toHex, type Address } from 'viem';
 import { getIssue, upsertIssue } from '../store/issues.js';
 import { createEscrow } from '../services/escrow.js';
 import { postIssueComment } from '../services/github.js';
+import { fundingPendingComment } from '../services/comments.js';
 
 const BASE_SEPOLIA_USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const BASE_SEPOLIA_CHAIN_ID = 84532;
@@ -82,19 +83,11 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload): Promise<
   });
 
   // Post comment on GitHub issue
-  const comment = [
-    `**GitPay** — Bounty Detected`,
-    '',
-    `| Field | Value |`,
-    `|-------|-------|`,
-    `| Amount | $${bountyCapUsd} USDC |`,
-    `| Escrow | \`${escrowAddress}\` |`,
-    `| Chain | Base Sepolia (84532) |`,
-    `| Status | Funding pending — awaiting x402 payment |`,
-    '',
-    `> Fund this bounty by sending an x402 payment to \`POST /api/fund\`.`,
-  ].join('\n');
-
+  const comment = fundingPendingComment({
+    amountUsd: bountyCapUsd,
+    escrowAddress,
+    chainId: BASE_SEPOLIA_CHAIN_ID,
+  });
   await postIssueComment(repoKey, issueNumber, comment);
 
   console.log(`[issue-labeled] ${issueKey} recorded as PENDING, escrow=${escrowAddress}`);
