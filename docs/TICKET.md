@@ -431,7 +431,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P1
-- Status: TODO
+- Status: DONE
 - Description:
   - Add Gemini API client and JSON schema validation.
 - Acceptance Criteria:
