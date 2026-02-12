@@ -11,9 +11,23 @@ export interface ChainConfig {
   chainId: number;
   rpcUrl: string;
   explorerUrl: string;
-  asset: Address;      // USDC (or demo ERC20) address
+  asset: Address;      // ERC20 asset address (e.g. SKLA)
+  assetSymbol: string; // Display symbol (e.g. SKLA)
+  assetDecimals: number; // ERC20 decimals
   factoryAddress: Address;
   isGasless: boolean;
+}
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function envAssetAddress(fallback: Address): Address {
+  // Back-compat: many places still use USDC_ADDRESS name.
+  return (process.env.ASSET_ADDRESS || process.env.USDC_ADDRESS || fallback) as Address;
 }
 
 const CHAINS: Record<string, ChainConfig> = {
@@ -22,7 +36,9 @@ const CHAINS: Record<string, ChainConfig> = {
     chainId: 84532,
     rpcUrl: process.env.RPC_URL || 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
-    asset: (process.env.USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as Address,
+    asset: envAssetAddress('0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address),
+    assetSymbol: process.env.ASSET_SYMBOL || 'USDC',
+    assetDecimals: envInt('ASSET_DECIMALS', 6),
     factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
     isGasless: false,
   },
@@ -31,7 +47,9 @@ const CHAINS: Record<string, ChainConfig> = {
     chainId: Number(process.env.CHAIN_ID || 0),
     rpcUrl: process.env.RPC_URL || '',
     explorerUrl: process.env.EXPLORER_URL || '',
-    asset: (process.env.USDC_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+    asset: envAssetAddress('0x0000000000000000000000000000000000000000' as Address),
+    assetSymbol: process.env.ASSET_SYMBOL || 'SKLA',
+    assetDecimals: envInt('ASSET_DECIMALS', 18),
     factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
     isGasless: true,
   },
@@ -53,7 +71,9 @@ function resolveChain(): ChainConfig {
   if (process.env.CHAIN_ID) chain.chainId = Number(process.env.CHAIN_ID);
   if (process.env.RPC_URL) chain.rpcUrl = process.env.RPC_URL;
   if (process.env.EXPLORER_URL) chain.explorerUrl = process.env.EXPLORER_URL;
-  if (process.env.USDC_ADDRESS) chain.asset = process.env.USDC_ADDRESS as Address;
+  if (process.env.ASSET_ADDRESS || process.env.USDC_ADDRESS) chain.asset = envAssetAddress(chain.asset);
+  if (process.env.ASSET_SYMBOL) chain.assetSymbol = process.env.ASSET_SYMBOL;
+  if (process.env.ASSET_DECIMALS) chain.assetDecimals = envInt('ASSET_DECIMALS', chain.assetDecimals);
   if (process.env.ESCROW_FACTORY_ADDRESS) chain.factoryAddress = process.env.ESCROW_FACTORY_ADDRESS as Address;
 
   return chain;
