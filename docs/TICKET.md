@@ -175,7 +175,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Implement typed-data builders for Intent/Cart (EIP-712) in TS.
 - Tasks:
