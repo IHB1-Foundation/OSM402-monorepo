@@ -2,9 +2,21 @@
   "name": "@gitpay/server",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "echo 'build not configured yet'",
-    "dev": "echo 'dev not configured yet'",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
     "test": "echo 'test not configured yet'"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2"
   }
 }
