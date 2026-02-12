@@ -1,0 +1,39 @@
+name: GitPay Demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'GitPay API URL'
+        required: true
+        default: 'http://localhost:3000'
+  issues:
+    types: [labeled]
+
+jobs:
+  gitpay-action:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd apps/github-action
+          npm install
+
+      - name: Build action
+        run: |
+          cd apps/github-action
+          npm run build
+
+      - name: Run GitPay Action
+        uses: ./apps/github-action
+        with:
+          api_url: ${{ github.event.inputs.api_url || 'http://localhost:3000' }}
+          action_secret: ${{ secrets.GITPAY_ACTION_SECRET }}

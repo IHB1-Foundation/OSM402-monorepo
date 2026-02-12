@@ -2,8 +2,18 @@
   "name": "@gitpay/github-action",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "echo 'build not configured yet'",
+    "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
     "test": "echo 'test not configured yet'"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vercel/ncc": "^0.38.3"
   }
 }

@@ -1,0 +1,24 @@
+name: 'GitPay Action'
+description: 'Fund GitHub issues via x402 and trigger GitPay payouts'
+author: 'GitPay.ai'
+
+branding:
+  icon: 'dollar-sign'
+  color: 'green'
+
+inputs:
+  api_url:
+    description: 'GitPay API URL'
+    required: true
+    default: 'http://localhost:3000'
+  action_secret:
+    description: 'Shared secret for API authentication'
+    required: true
+
+outputs:
+  result:
+    description: 'Result of the API call'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

@@ -92,7 +92,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Implement minimal GitHub Action package that can call an HTTP endpoint.
 - Tasks:
