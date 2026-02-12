@@ -7,3 +7,7 @@ export { parsePolicy, parsePolicySafe, validatePolicy, normalizeYaml } from './p
 
 // Hash functions
 export { computePolicyHash, computeRepoKeyHash, computeMergeShaHash } from './hash.js';
+
+// Payout calculator
+export type { DiffSummary, PayoutResult } from './payout.js';
+export { calculatePayout, getMaxPayout } from './payout.js';

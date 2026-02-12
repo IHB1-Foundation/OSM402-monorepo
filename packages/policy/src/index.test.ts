@@ -7,6 +7,8 @@ import {
   computePolicyHash,
   computeRepoKeyHash,
   computeMergeShaHash,
+  calculatePayout,
+  getMaxPayout,
 } from './index.js';
 
 const SAMPLE_POLICY = `
@@ -211,5 +213,124 @@ describe('Merge SHA Hash', () => {
 
     expect(hash1).toBe(hash2);
     expect(hash1).toMatch(/^0x[a-f0-9]{64}$/);
+  });
+});
+
+describe('Payout Calculator', () => {
+  describe('Fixed mode', () => {
+    it('should return fixed amount', () => {
+      const policy = parsePolicy(`
+version: 1
+payout:
+  mode: fixed
+  fixedAmountUsd: 25
+`);
+      const result = calculatePayout(policy, {
+        filesChanged: ['src/app.ts'],
+        additions: 100,
+        deletions: 50,
+      });
+
+      expect(result.amountUsd).toBe(25);
+      expect(result.tier).toBeNull();
+    });
+  });
+
+  describe('Tiered mode', () => {
+    it('should match docs tier with onlyPaths', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = calculatePayout(policy, {
+        filesChanged: ['README.md', 'docs/guide.md'],
+        additions: 10,
+        deletions: 5,
+      });
+
+      expect(result.amountUsd).toBe(1);
+      expect(result.tier).toBe('docs');
+    });
+
+    it('should match simple_fix tier with size constraints', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = calculatePayout(policy, {
+        filesChanged: ['src/app.ts', 'src/utils.ts'],
+        additions: 30,
+        deletions: 20,
+      });
+
+      expect(result.amountUsd).toBe(5);
+      expect(result.tier).toBe('simple_fix');
+    });
+
+    it('should match security_patch tier with anyPaths', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = calculatePayout(policy, {
+        filesChanged: ['src/auth/login.ts', 'src/app.ts'],
+        additions: 100,
+        deletions: 50,
+      });
+
+      expect(result.amountUsd).toBe(50);
+      expect(result.tier).toBe('security_patch');
+    });
+
+    it('should return 0 when no tier matches', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const result = calculatePayout(policy, {
+        filesChanged: ['src/app.ts'],
+        additions: 100, // Exceeds simple_fix maxAdditions
+        deletions: 50,
+      });
+
+      expect(result.amountUsd).toBe(0);
+      expect(result.tier).toBeNull();
+    });
+
+    it('should match first tier in order (deterministic)', () => {
+      // Tiers are evaluated in order, first match wins
+      const policy = parsePolicy(SAMPLE_POLICY);
+
+      // This matches docs (onlyPaths) AND could potentially match others
+      // but docs comes first
+      const result = calculatePayout(policy, {
+        filesChanged: ['docs/README.md'],
+        additions: 5,
+        deletions: 2,
+      });
+
+      expect(result.tier).toBe('docs');
+    });
+  });
+
+  describe('Determinism', () => {
+    it('should return same result for same input', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      const diff = {
+        filesChanged: ['src/app.ts'],
+        additions: 30,
+        deletions: 10,
+      };
+
+      const result1 = calculatePayout(policy, diff);
+      const result2 = calculatePayout(policy, diff);
+
+      expect(result1).toEqual(result2);
+    });
+  });
+
+  describe('getMaxPayout', () => {
+    it('should return max tier amount', () => {
+      const policy = parsePolicy(SAMPLE_POLICY);
+      expect(getMaxPayout(policy)).toBe(50);
+    });
+
+    it('should return fixed amount for fixed mode', () => {
+      const policy = parsePolicy(`
+version: 1
+payout:
+  mode: fixed
+  fixedAmountUsd: 100
+`);
+      expect(getMaxPayout(policy)).toBe(100);
+    });
   });
 });
