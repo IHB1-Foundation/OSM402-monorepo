@@ -11,6 +11,7 @@ const envSchema = z.object({
     .string()
     .transform((val) => val === 'true')
     .default('true'),
+  GITHUB_WEBHOOK_SECRET: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
