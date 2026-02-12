@@ -42,13 +42,12 @@ contract Deploy is Script {
         // Output deployment info for address registry
         console.log("");
         console.log("=== DEPLOYMENT SUMMARY ===");
-        console.log("Network: Base Sepolia");
         console.log("Chain ID:", block.chainid);
         console.log("Factory Address:", address(factory));
         console.log("Maintainer Signer:", maintainerSigner);
         console.log("Agent Signer:", agentSigner);
         console.log("");
-        console.log("Save these addresses to apps/server/config/chains/base-sepolia.json");
+        console.log("Save addresses to the appropriate config/chains/<network>.json");
     }
 }
 

@@ -1,0 +1,18 @@
+{
+  "network": "skale-testnet",
+  "chainName": "Europa Hub Testnet",
+  "chainId": 1444673419,
+  "rpcUrl": "https://testnet.skalenodes.com/v1/juicy-low-small-testnet",
+  "explorerUrl": "https://juicy-low-small-testnet.explorer.testnet.skalenodes.com",
+  "contracts": {
+    "issueEscrowFactory": "",
+    "mockUsdc": ""
+  },
+  "signers": {
+    "maintainer": "",
+    "agent": ""
+  },
+  "deployed": false,
+  "deployedAt": null,
+  "notes": "Deploy with: forge script script/DeploySKALE.s.sol --rpc-url $SKALE_RPC_URL --broadcast. SKALE is gasless — no native token needed for tx fees."
+}
