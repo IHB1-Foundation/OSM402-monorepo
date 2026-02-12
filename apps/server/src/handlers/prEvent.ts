@@ -7,6 +7,7 @@ import { getPr, upsertPr, updatePr, getPrKey, type DiffSummary } from '../store/
 import { runReview } from '../services/reviewer.js';
 import { postIssueComment } from '../services/github.js';
 import { reviewComment } from '../services/comments.js';
+import { extractAddressFromPrBody } from './addressClaim.js';
 
 interface PrPayload {
   action: 'opened' | 'synchronize' | 'closed';
@@ -58,6 +59,8 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
     changedFiles: [], // Would be populated from a separate API call
   };
 
+  const contributorAddress = extractAddressFromPrBody(pr.body) ?? undefined;
+
   upsertPr({
     id: prKey,
     prKey,
@@ -65,13 +68,14 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
     prNumber,
     issueNumber: linkedIssue,
     contributorGithub: pr.user.login,
+    contributorAddress,
     diff,
     status: 'OPEN',
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
-  console.log(`[pr-event] PR ${prKey} opened by ${pr.user.login}, linked issue: ${linkedIssue ?? 'none'}`);
+  console.log(`[pr-event] PR ${prKey} opened by ${pr.user.login}, linked issue: ${linkedIssue ?? 'none'}, address: ${contributorAddress ?? 'none'}`);
 
   // Run AI review (non-blocking, falls back gracefully)
   const prRecord = getPr(repoKey, prNumber);

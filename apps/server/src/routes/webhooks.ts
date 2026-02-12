@@ -5,6 +5,7 @@ import { isDeliveryProcessed, recordDelivery } from '../store/events.js';
 import { handleIssueLabeled } from '../handlers/issueLabeled.js';
 import { handlePrOpened, handlePrSynchronize } from '../handlers/prEvent.js';
 import { handleMergeDetected } from '../handlers/mergeDetected.js';
+import { handleAddressClaim } from '../handlers/addressClaim.js';
 
 const router = Router();
 
@@ -111,6 +112,12 @@ router.post('/', async (req: Request & { rawBody?: Buffer }, res: Response) => {
     case 'pull_request.closed': {
       const mergeResult = await handleMergeDetected(req.body);
       res.json({ received: true, event: eventKey, deliveryId, ...mergeResult });
+      return;
+    }
+
+    case 'issue_comment.created': {
+      const addrResult = await handleAddressClaim(req.body);
+      res.json({ received: true, event: eventKey, deliveryId, ...addrResult });
       return;
     }
 
