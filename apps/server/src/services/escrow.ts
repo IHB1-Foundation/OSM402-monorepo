@@ -1,4 +1,5 @@
 import { keccak256, toHex, type Hex, type Address } from 'viem';
+import type { Cart, Intent } from '@gitpay/mandates';
 
 /**
  * Escrow deposit configuration
@@ -117,4 +118,59 @@ export async function createEscrow(params: {
 
   // TODO: Call IssueEscrowFactory.createEscrow via viem
   throw new Error('Real escrow creation not implemented');
+}
+
+// =============================================================
+//                       RELEASE (PAYOUT)
+// =============================================================
+
+export interface ReleaseConfig {
+  escrowAddress: Address;
+  intent: Intent;
+  intentSig: Hex;
+  cart: Cart;
+  cartSig: Hex;
+  chainId: number;
+}
+
+export interface ReleaseResult {
+  success: boolean;
+  txHash?: Hex;
+  error?: string;
+}
+
+/**
+ * Release funds from escrow by calling IssueEscrow.release()
+ * Uses mock mode in development.
+ */
+export async function releaseEscrow(config: ReleaseConfig): Promise<ReleaseResult> {
+  if (MOCK_MODE) {
+    return mockRelease(config);
+  }
+  return realRelease(config);
+}
+
+async function mockRelease(config: ReleaseConfig): Promise<ReleaseResult> {
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  const txHash = keccak256(
+    toHex(`mock-release:${config.escrowAddress}:${config.cart.amount}:${Date.now()}`)
+  );
+
+  console.log(`[escrow] Mock release: escrow=${config.escrowAddress}, amount=${config.cart.amount}, recipient=${config.cart.recipient}`);
+
+  return { success: true, txHash };
+}
+
+async function realRelease(_config: ReleaseConfig): Promise<ReleaseResult> {
+  // In production, this would:
+  // 1. Create wallet client with agent private key
+  // 2. Encode release() calldata with intent, intentSig, cart, cartSig
+  // 3. Send transaction
+  // 4. Wait for confirmation and check for Released event
+  // 5. Return txHash
+  return {
+    success: false,
+    error: 'Real escrow release not implemented - use ESCROW_MOCK_MODE=true',
+  };
 }

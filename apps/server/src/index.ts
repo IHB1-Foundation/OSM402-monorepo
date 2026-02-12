@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { requirePayment, type X402Request } from './middleware/x402.js';
 import fundRouter from './routes/fund.js';
 import webhooksRouter from './routes/webhooks.js';
+import payoutRouter from './routes/payout.js';
 
 const app = express();
 
@@ -13,6 +14,9 @@ app.use('/api/fund', fundRouter);
 
 // GitHub webhook endpoint
 app.use('/api/webhooks/github', webhooksRouter);
+
+// Payout execution endpoint
+app.use('/api/payout', payoutRouter);
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {

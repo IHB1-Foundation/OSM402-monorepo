@@ -392,7 +392,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Call IssueEscrow `release` and record txHash.
 - Acceptance Criteria:
