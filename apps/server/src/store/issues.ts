@@ -1,16 +1,17 @@
 /**
- * In-memory issue store for MVP
- * Will be replaced with Prisma in production
+ * Issue store backed by SQLite.
  */
+
+import { getDb } from './db.js';
 
 export type IssueStatus = 'PENDING' | 'FUNDED' | 'PAID' | 'EXPIRED';
 
 export interface IssueRecord {
   id: string;
-  repoKey: string; // owner/repo
+  repoKey: string;
   issueNumber: number;
-  bountyCap: string; // In smallest unit (e.g., USDC with 6 decimals)
-  asset: string; // ERC20 address
+  bountyCap: string;
+  asset: string;
   chainId: number;
   policyHash: string;
   escrowAddress?: string;
@@ -21,58 +22,66 @@ export interface IssueRecord {
   fundedAt?: Date;
 }
 
-// In-memory store
-const issues = new Map<string, IssueRecord>();
+function toRecord(row: Record<string, unknown>): IssueRecord {
+  return {
+    ...row,
+    createdAt: new Date(row.createdAt as string),
+    fundedAt: row.fundedAt ? new Date(row.fundedAt as string) : undefined,
+  } as IssueRecord;
+}
 
-/**
- * Generate issue key from repo and issue number
- */
 export function getIssueKey(repoKey: string, issueNumber: number): string {
   return `${repoKey}#${issueNumber}`;
 }
 
-/**
- * Get issue record
- */
 export function getIssue(repoKey: string, issueNumber: number): IssueRecord | undefined {
-  return issues.get(getIssueKey(repoKey, issueNumber));
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM issues WHERE repoKey = ? AND issueNumber = ?').get(repoKey, issueNumber) as Record<string, unknown> | undefined;
+  return row ? toRecord(row) : undefined;
 }
 
-/**
- * Create or update issue record
- */
 export function upsertIssue(issue: IssueRecord): IssueRecord {
-  const key = getIssueKey(issue.repoKey, issue.issueNumber);
-  issues.set(key, issue);
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO issues (id, repoKey, issueNumber, bountyCap, asset, chainId, policyHash, escrowAddress, intentHash, fundingTxHash, status, createdAt, fundedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(repoKey, issueNumber) DO UPDATE SET
+      bountyCap = excluded.bountyCap,
+      asset = excluded.asset,
+      chainId = excluded.chainId,
+      policyHash = excluded.policyHash,
+      escrowAddress = COALESCE(excluded.escrowAddress, issues.escrowAddress),
+      intentHash = COALESCE(excluded.intentHash, issues.intentHash),
+      fundingTxHash = COALESCE(excluded.fundingTxHash, issues.fundingTxHash),
+      status = excluded.status,
+      fundedAt = COALESCE(excluded.fundedAt, issues.fundedAt)
+  `).run(
+    issue.id, issue.repoKey, issue.issueNumber, issue.bountyCap,
+    issue.asset, issue.chainId, issue.policyHash,
+    issue.escrowAddress ?? null, issue.intentHash ?? null,
+    issue.fundingTxHash ?? null, issue.status,
+    issue.createdAt.toISOString(), issue.fundedAt?.toISOString() ?? null,
+  );
   return issue;
 }
 
-/**
- * Update issue status
- */
 export function updateIssueStatus(
   repoKey: string,
   issueNumber: number,
-  update: Partial<IssueRecord>
+  update: Partial<IssueRecord>,
 ): IssueRecord | undefined {
-  const key = getIssueKey(repoKey, issueNumber);
-  const existing = issues.get(key);
+  const existing = getIssue(repoKey, issueNumber);
   if (!existing) return undefined;
-
-  const updated = { ...existing, ...update };
-  issues.set(key, updated);
-  return updated;
+  const merged = { ...existing, ...update };
+  return upsertIssue(merged);
 }
 
-/**
- * Mark issue as funded
- */
 export function markIssueFunded(
   repoKey: string,
   issueNumber: number,
   escrowAddress: string,
   intentHash: string,
-  fundingTxHash?: string
+  fundingTxHash?: string,
 ): IssueRecord | undefined {
   return updateIssueStatus(repoKey, issueNumber, {
     status: 'FUNDED',
@@ -83,9 +92,8 @@ export function markIssueFunded(
   });
 }
 
-/**
- * Get all issues (for debugging)
- */
 export function getAllIssues(): IssueRecord[] {
-  return Array.from(issues.values());
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM issues').all() as Record<string, unknown>[];
+  return rows.map(toRecord);
 }

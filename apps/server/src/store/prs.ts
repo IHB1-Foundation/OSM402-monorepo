@@ -1,6 +1,8 @@
 /**
- * In-memory PR store for MVP
+ * PR store backed by SQLite.
  */
+
+import { getDb } from './db.js';
 
 export type PrStatus = 'OPEN' | 'MERGED' | 'CLOSED' | 'PAID';
 
@@ -13,10 +15,10 @@ export interface DiffSummary {
 
 export interface PrRecord {
   id: string;
-  prKey: string; // owner/repo#PR123
+  prKey: string;
   repoKey: string;
   prNumber: number;
-  issueNumber?: number; // Linked issue
+  issueNumber?: number;
   mergeSha?: string;
   contributorGithub: string;
   contributorAddress?: string;
@@ -26,18 +28,64 @@ export interface PrRecord {
   updatedAt: Date;
 }
 
-const prs = new Map<string, PrRecord>();
+function toRecord(row: Record<string, unknown>): PrRecord {
+  return {
+    id: row.id as string,
+    prKey: row.prKey as string,
+    repoKey: row.repoKey as string,
+    prNumber: row.prNumber as number,
+    issueNumber: row.issueNumber as number | undefined,
+    mergeSha: row.mergeSha as string | undefined,
+    contributorGithub: row.contributorGithub as string,
+    contributorAddress: row.contributorAddress as string | undefined,
+    diff: {
+      filesChanged: row.filesChanged as number,
+      additions: row.additions as number,
+      deletions: row.deletions as number,
+      changedFiles: JSON.parse((row.changedFiles as string) || '[]'),
+    },
+    status: row.status as PrStatus,
+    createdAt: new Date(row.createdAt as string),
+    updatedAt: new Date(row.updatedAt as string),
+  };
+}
 
 export function getPrKey(repoKey: string, prNumber: number): string {
   return `${repoKey}#PR${prNumber}`;
 }
 
 export function getPr(repoKey: string, prNumber: number): PrRecord | undefined {
-  return prs.get(getPrKey(repoKey, prNumber));
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM prs WHERE repoKey = ? AND prNumber = ?').get(repoKey, prNumber) as Record<string, unknown> | undefined;
+  return row ? toRecord(row) : undefined;
 }
 
 export function upsertPr(pr: PrRecord): PrRecord {
-  prs.set(pr.prKey, pr);
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO prs (id, prKey, repoKey, prNumber, issueNumber, mergeSha, contributorGithub, contributorAddress, filesChanged, additions, deletions, changedFiles, status, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(repoKey, prNumber) DO UPDATE SET
+      issueNumber = COALESCE(excluded.issueNumber, prs.issueNumber),
+      mergeSha = COALESCE(excluded.mergeSha, prs.mergeSha),
+      contributorGithub = excluded.contributorGithub,
+      contributorAddress = COALESCE(excluded.contributorAddress, prs.contributorAddress),
+      filesChanged = excluded.filesChanged,
+      additions = excluded.additions,
+      deletions = excluded.deletions,
+      changedFiles = excluded.changedFiles,
+      status = excluded.status,
+      updatedAt = excluded.updatedAt
+  `).run(
+    pr.id, pr.prKey, pr.repoKey, pr.prNumber,
+    pr.issueNumber ?? null, pr.mergeSha ?? null,
+    pr.contributorGithub, pr.contributorAddress ?? null,
+    pr.diff?.filesChanged ?? 0, pr.diff?.additions ?? 0,
+    pr.diff?.deletions ?? 0,
+    JSON.stringify(pr.diff?.changedFiles ?? []),
+    pr.status,
+    pr.createdAt.toISOString(), pr.updatedAt.toISOString(),
+  );
   return pr;
 }
 
@@ -46,14 +94,19 @@ export function updatePr(
   prNumber: number,
   update: Partial<PrRecord>,
 ): PrRecord | undefined {
-  const key = getPrKey(repoKey, prNumber);
-  const existing = prs.get(key);
+  const existing = getPr(repoKey, prNumber);
   if (!existing) return undefined;
-  const updated = { ...existing, ...update, updatedAt: new Date() };
-  prs.set(key, updated);
-  return updated;
+  const merged = {
+    ...existing,
+    ...update,
+    diff: update.diff ? { ...existing.diff, ...update.diff } as DiffSummary : existing.diff,
+    updatedAt: new Date(),
+  };
+  return upsertPr(merged);
 }
 
 export function getAllPrs(): PrRecord[] {
-  return Array.from(prs.values());
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM prs').all() as Record<string, unknown>[];
+  return rows.map(toRecord);
 }

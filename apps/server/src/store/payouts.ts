@@ -1,7 +1,9 @@
 /**
- * In-memory payout store for MVP
+ * Payout store backed by SQLite.
  * Includes locking and idempotency guarantees.
  */
+
+import { getDb } from './db.js';
 
 export type PayoutStatus = 'PENDING' | 'HOLD' | 'EXECUTING' | 'DONE' | 'FAILED';
 
@@ -15,7 +17,7 @@ export interface PayoutRecord {
   mergeSha: string;
   recipient?: string;
   amountUsd: number;
-  amountRaw?: string; // USDC units
+  amountRaw?: string;
   tier?: string;
   cartHash?: string;
   intentHash?: string;
@@ -26,37 +28,31 @@ export interface PayoutRecord {
   updatedAt: Date;
 }
 
-const payouts = new Map<string, PayoutRecord>();
-
-// Unique constraint: one payout per issue (prevents double payout for same issue)
-const issuePayoutIndex = new Map<string, string>(); // issueKey → payoutKey
-
-// Lock set: prevents concurrent execution of the same payout
-const executionLocks = new Set<string>();
+function toRecord(row: Record<string, unknown>): PayoutRecord {
+  return {
+    ...row,
+    holdReasons: row.holdReasons ? JSON.parse(row.holdReasons as string) : undefined,
+    createdAt: new Date(row.createdAt as string),
+    updatedAt: new Date(row.updatedAt as string),
+  } as PayoutRecord;
+}
 
 function payoutKey(repoKey: string, prNumber: number): string {
   return `${repoKey}#PR${prNumber}`;
 }
 
 export function getPayout(repoKey: string, prNumber: number): PayoutRecord | undefined {
-  return payouts.get(payoutKey(repoKey, prNumber));
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM payouts WHERE repoKey = ? AND prNumber = ?').get(repoKey, prNumber) as Record<string, unknown> | undefined;
+  return row ? toRecord(row) : undefined;
 }
 
-/**
- * Check if an issue already has a non-failed payout
- */
 export function getPayoutByIssue(issueKey: string): PayoutRecord | undefined {
-  const pk = issuePayoutIndex.get(issueKey);
-  if (!pk) return undefined;
-  const payout = payouts.get(pk);
-  if (payout && payout.status !== 'FAILED') return payout;
-  return undefined;
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM payouts WHERE issueKey = ? AND status != 'FAILED' LIMIT 1").get(issueKey) as Record<string, unknown> | undefined;
+  return row ? toRecord(row) : undefined;
 }
 
-/**
- * Create a payout record. Enforces uniqueness per issue.
- * Returns null if a non-failed payout already exists for this issue.
- */
 export function createPayout(payout: PayoutRecord): PayoutRecord | null {
   // Unique constraint: one active payout per issue
   const existingForIssue = getPayoutByIssue(payout.issueKey);
@@ -66,25 +62,34 @@ export function createPayout(payout: PayoutRecord): PayoutRecord | null {
   }
 
   const key = payoutKey(payout.repoKey, payout.prNumber);
-
-  // Unique constraint: one payout per PR
-  if (payouts.has(key)) {
-    const existing = payouts.get(key)!;
-    if (existing.status !== 'FAILED') {
-      console.log(`[payouts] Duplicate payout rejected for ${key} (status: ${existing.status})`);
-      return null;
-    }
+  const existingForPr = getPayout(payout.repoKey, payout.prNumber);
+  if (existingForPr && existingForPr.status !== 'FAILED') {
+    console.log(`[payouts] Duplicate payout rejected for ${key} (status: ${existingForPr.status})`);
+    return null;
   }
 
-  payouts.set(key, payout);
-  issuePayoutIndex.set(payout.issueKey, key);
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO payouts (id, issueKey, prKey, repoKey, issueNumber, prNumber, mergeSha, recipient, amountUsd, amountRaw, tier, cartHash, intentHash, txHash, holdReasons, status, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    payout.id, payout.issueKey, payout.prKey, payout.repoKey,
+    payout.issueNumber, payout.prNumber, payout.mergeSha,
+    payout.recipient ?? null, payout.amountUsd,
+    payout.amountRaw ?? null, payout.tier ?? null,
+    payout.cartHash ?? null, payout.intentHash ?? null,
+    payout.txHash ?? null,
+    payout.holdReasons ? JSON.stringify(payout.holdReasons) : null,
+    payout.status,
+    payout.createdAt.toISOString(), payout.updatedAt.toISOString(),
+  );
+
   return payout;
 }
 
-/**
- * Acquire execution lock for a payout.
- * Returns false if lock already held (concurrent execution).
- */
+// In-memory execution locks (per-process, not persisted)
+const executionLocks = new Set<string>();
+
 export function acquirePayoutLock(repoKey: string, prNumber: number): boolean {
   const key = payoutKey(repoKey, prNumber);
   if (executionLocks.has(key)) return false;
@@ -92,9 +97,6 @@ export function acquirePayoutLock(repoKey: string, prNumber: number): boolean {
   return true;
 }
 
-/**
- * Release execution lock for a payout.
- */
 export function releasePayoutLock(repoKey: string, prNumber: number): void {
   executionLocks.delete(payoutKey(repoKey, prNumber));
 }
@@ -104,14 +106,32 @@ export function updatePayout(
   prNumber: number,
   update: Partial<PayoutRecord>,
 ): PayoutRecord | undefined {
-  const key = payoutKey(repoKey, prNumber);
-  const existing = payouts.get(key);
+  const existing = getPayout(repoKey, prNumber);
   if (!existing) return undefined;
-  const updated = { ...existing, ...update, updatedAt: new Date() };
-  payouts.set(key, updated);
-  return updated;
+
+  const merged = { ...existing, ...update, updatedAt: new Date() };
+  const db = getDb();
+  db.prepare(`
+    UPDATE payouts SET
+      recipient = ?, amountUsd = ?, amountRaw = ?, tier = ?,
+      cartHash = ?, intentHash = ?, txHash = ?,
+      holdReasons = ?, status = ?, updatedAt = ?
+    WHERE repoKey = ? AND prNumber = ?
+  `).run(
+    merged.recipient ?? null, merged.amountUsd,
+    merged.amountRaw ?? null, merged.tier ?? null,
+    merged.cartHash ?? null, merged.intentHash ?? null,
+    merged.txHash ?? null,
+    merged.holdReasons ? JSON.stringify(merged.holdReasons) : null,
+    merged.status, merged.updatedAt.toISOString(),
+    repoKey, prNumber,
+  );
+
+  return merged;
 }
 
 export function getAllPayouts(): PayoutRecord[] {
-  return Array.from(payouts.values());
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM payouts').all() as Record<string, unknown>[];
+  return rows.map(toRecord);
 }
