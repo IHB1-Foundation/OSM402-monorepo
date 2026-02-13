@@ -69,7 +69,7 @@ pnpm dev --filter server
 
 Verify: `curl http://localhost:3000/api/health | jq`
 
-### 5. Optional: SKALE Testnet Mode (x402-supported, real onchain funding + payout)
+### 5. Optional: SKALE Hackathon Chain Mode (BITE V2 Sandbox 2)
 
 Use this when you want the full “Commerce Realism” story:
 
@@ -77,7 +77,7 @@ Use this when you want the full “Commerce Realism” story:
 - **Onchain ERC20 transfer proof** (txHash)
 - Escrow `release(...)` on SKALE testnet
 
-- [ ] Choose SKALE testnet: **SKALE Base Sepolia** (x402 facilitator support commonly calls this `skale-base-spolia`)
+- [ ] Choose SKALE hackathon chain: **BITE V2 Sandbox 2**
 - [ ] Deploy contracts (MockSKLA + IssueEscrowFactory)
 - [ ] Run server with SKALE config and real modes
 - [ ] Fund using the provided `x402Fund.ts` helper
@@ -85,10 +85,10 @@ Use this when you want the full “Commerce Realism” story:
 #### 5.1 Set SKALE env vars in `.env`
 
   ```bash
-  CHAIN_NAME=skale-base-spolia
-  # Optional overrides (defaults exist for skale-base-spolia preset)
-  RPC_URL=https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha
-  EXPLORER_URL=https://base-sepolia-testnet-explorer.skalenodes.com
+  CHAIN_NAME=bite-v2-sandbox-2
+  # Optional overrides (defaults exist for bite-v2-sandbox-2 preset)
+  RPC_URL=https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2
+  EXPLORER_URL=https://base-sepolia-testnet-explorer.skalenodes.com:10032
 
   # Asset (SKLA)
   ASSET_SYMBOL=SKLA
@@ -110,9 +110,9 @@ Use this when you want the full “Commerce Realism” story:
 #### 5.2 Deploy contracts to SKALE Base Sepolia
 
   ```bash
-  export SKALE_BASE_SEPOLIA_RPC_URL="https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha"
+  export BITE_V2_SANDBOX_2_RPC_URL="https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2"
   export DEPLOYER_PRIVATE_KEY="<key>"
-  pnpm --filter contracts deploy:skale-base-sepolia
+  pnpm --filter contracts deploy:bite-v2-sandbox-2
   ```
 
 Record the printed addresses into `.env`:
@@ -122,7 +122,7 @@ Record the printed addresses into `.env`:
 
 Explorer proof:
 
-- `https://base-sepolia-testnet-explorer.skalenodes.com/address/<FACTORY>`
+- `https://base-sepolia-testnet-explorer.skalenodes.com:10032/address/<FACTORY>`
 
 ### 6. Optional: Real GitHub Integration
 
@@ -199,7 +199,7 @@ pnpm --filter server tsx src/scripts/x402Fund.ts \
   --repo "demo/repo" \
   --issue 1 \
   --bounty 10 \
-  --rpc-url "https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha" \
+  --rpc-url "https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2" \
   --private-key "<PAYER_PRIVATE_KEY>"
 ```
 
@@ -285,7 +285,7 @@ Expected: `"Delivery already processed"` — no duplicate payout.
 | **AI Readiness** | Gemini structured review + riskFlags → HOLD | PR open triggers AI review | Structured JSON output with summary, riskFlags, testObservations |
 | **Commerce Realism** | x402 HTTP 402 → payment → onchain escrow | Steps 2a–2b | Real 402 challenge-response, payment verification, escrow deposit |
 | **Ship-ability** | Full pipeline: fund → merge → payout | Steps 2–5 | End-to-end flow with SQLite persistence, idempotency |
-| **Partner Integration (SKALE)** | Gasless deployment, chain adapter, MockSKLA | Optional SKALE testnet mode | Contracts on SKALE Base Sepolia, gasless tx |
+| **Partner Integration (SKALE)** | Gasless deployment, chain adapter, MockSKLA | Optional SKALE testnet mode | Contracts on BITE V2 Sandbox 2, onchain proofs |
 | **Composability** | EIP-712 mandates, deterministic escrow (CREATE2) | Intent/Cart hashes in output | Two-mandate authorization, deterministic escrow addresses |
 
 ---
