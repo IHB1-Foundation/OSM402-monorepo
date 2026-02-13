@@ -94,10 +94,12 @@ Faucet (if you need sFUEL / test assets): request in SKALE Builders Telegram:
   RPC_URL=https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2
   EXPLORER_URL=https://base-sepolia-testnet-explorer.skalenodes.com:10032
 
-  # Asset (SKLA)
-  ASSET_SYMBOL=SKLA
-  ASSET_DECIMALS=18
-  ASSET_ADDRESS=<MOCK_SKLA_ADDRESS>
+  # Asset (recommended: chain USDC)
+  # BITE V2 Sandbox 2 USDC (decimals 6): 0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8
+  # (You can omit ASSET_* entirely if you keep the preset defaults.)
+  ASSET_SYMBOL=USDC
+  ASSET_DECIMALS=6
+  ASSET_ADDRESS=0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8
 
   # Escrow factory
   ESCROW_FACTORY_ADDRESS=<FACTORY_ADDRESS>
@@ -121,7 +123,7 @@ Faucet (if you need sFUEL / test assets): request in SKALE Builders Telegram:
 
 Record the printed addresses into `.env`:
 
-- `MockSKLA` → `ASSET_ADDRESS`
+- `MockSKLA` → optional (only if you choose to use it instead of USDC)
 - `IssueEscrowFactory` → `ESCROW_FACTORY_ADDRESS`
 
 Explorer proof:
