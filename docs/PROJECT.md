@@ -177,8 +177,8 @@ GitPay.ai introduces a three-layer trust model:
 
 ### 7.2 Network choice
 
-- **MVP network:** Base Sepolia (lowest integration risk for x402 plus Smart Wallet support).
-- **Optional:** SKALE adapter (chain abstraction to redeploy escrow and demonstrate gasless experience).
+- **MVP network:** BITE V2 Sandbox 2 (SKALE) for hackathon-aligned demo flow.
+- **Optional:** Additional chain adapters for broader deployment coverage.
 
 ---
 
@@ -501,7 +501,7 @@ gitpay/
 - `GITHUB_CLIENT_SECRET` (optional)
 - `GITPAY_AGENT_PRIVATE_KEY` (EOA for signing cart mandates)
 - `GITPAY_MAINTAINER_PRIVATE_KEY` (for signing intent mandates in MVP demo)
-- `CHAIN_ID` (Base Sepolia)
+- `CHAIN_ID` (BITE V2 Sandbox 2)
 - `RPC_URL`
 - `ESCROW_FACTORY_ADDRESS`
 - `USDC_ADDRESS` (or supported asset)
@@ -520,8 +520,8 @@ gitpay/
 ### 17.1 Contracts
 
 1. Install Foundry or Hardhat.
-2. Deploy contracts to Base Sepolia.
-3. Record addresses in `apps/server/config/chains/base-sepolia.json`.
+2. Deploy contracts to BITE V2 Sandbox 2.
+3. Record addresses in `apps/server/config/chains/skale-testnet.json`.
 
 ### 17.2 Server
 
@@ -549,7 +549,7 @@ gitpay/
 
 ## 18) Decision Log (MVP Defaults)
 
-- Network: Base Sepolia
+- Network: BITE V2 Sandbox 2
 - Asset: supported stable (USDC preferred)
 - Policy: tiered payouts with deterministic rules
 - AI: Gemini for explanation and `HOLD` signal only

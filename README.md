@@ -108,8 +108,8 @@ Output directory:
 # Run contract tests
 pnpm contracts:test
 
-# Deploy to Base Sepolia (requires DEPLOYER_PRIVATE_KEY in .env)
-cd contracts && forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
+# Deploy to BITE V2 Sandbox 2 (requires DEPLOYER_PRIVATE_KEY in .env)
+pnpm --filter contracts deploy:bite-v2-sandbox-2
 ```
 
 ## Project Structure

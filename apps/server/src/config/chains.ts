@@ -42,7 +42,7 @@ const CHAINS: Record<string, ChainConfig> = {
     factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
     isGasless: false,
   },
-  // SKALE "Base Sepolia" testnet (x402 facilitator-supported: skale-base-spolia)
+  // Legacy SKALE testnet profile (x402 facilitator-supported: skale-base-spolia)
   // Docs: https://docs.skale.space/chain-info/schain/base-sepolia
   'skale-base-sepolia': {
     name: 'skale-base-sepolia',
@@ -114,14 +114,14 @@ const CHAINS: Record<string, ChainConfig> = {
 
 /**
  * Resolve the active chain from CHAIN_NAME env var.
- * Defaults to 'base-sepolia' if not set.
+ * Defaults to 'bite-v2-sandbox-2' if not set.
  */
 function resolveChain(): ChainConfig {
-  const name = process.env.CHAIN_NAME || 'base-sepolia';
+  const name = process.env.CHAIN_NAME || 'bite-v2-sandbox-2';
   const chain = CHAINS[name];
   if (!chain) {
-    console.error(`[chain] Unknown CHAIN_NAME="${name}", falling back to base-sepolia`);
-    return CHAINS['base-sepolia']!;
+    console.error(`[chain] Unknown CHAIN_NAME="${name}", falling back to bite-v2-sandbox-2`);
+    return CHAINS['bite-v2-sandbox-2']!;
   }
 
   // Allow env overrides for any chain

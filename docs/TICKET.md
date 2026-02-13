@@ -161,8 +161,8 @@ A ticket is DONE only if:
 - Description:
   - Add scripts to deploy factory and record addresses/config.
 - Tasks:
-  - Deploy to Base Sepolia
-  - Save to `apps/server/config/chains/base-sepolia.json`
+  - Deploy to BITE V2 Sandbox 2
+  - Save to `apps/server/config/chains/skale-testnet.json`
 - Acceptance Criteria:
   - One command deploys and prints addresses
 - Dependencies: GP-010

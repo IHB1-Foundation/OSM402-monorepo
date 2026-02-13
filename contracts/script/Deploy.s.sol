@@ -5,7 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {IssueEscrowFactory} from "../src/IssueEscrowFactory.sol";
 
 /// @title Deploy - Deployment script for GitPay contracts
-/// @notice Deploys IssueEscrowFactory to Base Sepolia
+/// @notice Deploys IssueEscrowFactory to an EVM testnet configured by RPC
 contract Deploy is Script {
     // Default signers for MVP demo - should be configured via env in production
     address constant DEFAULT_MAINTAINER = address(0x1);

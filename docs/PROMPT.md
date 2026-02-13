@@ -25,7 +25,7 @@ IMPORTANT RULES:
 1. Do not skip tickets.
 2. Do not change ticket acceptance criteria. If something is impossible, implement the closest safe substitute and write a short note under that ticket (in TICKET.md) explaining the deviation and why.
 3. No secrets in the repo. Use .env.example and docs.
-4. Build a working MVP on Base Sepolia first. SKALE mode is optional and must not block MVP.
+4. Build a working MVP on BITE V2 Sandbox 2 first. Optional chains must not block MVP.
 5. AI must never decide payout amounts. AI is only for explanation + HOLD signals.
 6. Payout must be mandate-guarded and replay-safe (both onchain and offchain idempotency).
 
@@ -78,7 +78,7 @@ DEFAULT IMPLEMENTATION CHOICES (unless you have a better reason):
 WHEN YOU NEED EXTERNAL INFORMATION:
 
 - You are allowed to look up:
-  - Base Sepolia chainId, RPC usage, USDC address on Base Sepolia
+  - BITE V2 Sandbox 2 chainId, RPC usage, USDC address
   - x402 library usage examples and network support requirements
 - If a dependency requires a supported asset/network, prefer the officially supported configuration.
 
