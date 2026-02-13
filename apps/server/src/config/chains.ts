@@ -71,6 +71,32 @@ const CHAINS: Record<string, ChainConfig> = {
     factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
     isGasless: true,
   },
+  // Hackathon chain: BITE V2 Sandbox 2 (SKALE)
+  // Docs: https://docs.skale.space/get-started/hackathon/info#bite-v2-sandbox-2
+  // Note: Explorer uses a custom port (Blockscout).
+  'bite-v2-sandbox-2': {
+    name: 'bite-v2-sandbox-2',
+    chainId: 103_698_795,
+    rpcUrl: process.env.RPC_URL || 'https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2',
+    explorerUrl: process.env.EXPLORER_URL || 'https://base-sepolia-testnet-explorer.skalenodes.com:10032',
+    asset: envAssetAddress('0x0000000000000000000000000000000000000000' as Address),
+    assetSymbol: process.env.ASSET_SYMBOL || 'SKLA',
+    assetDecimals: envInt('ASSET_DECIMALS', 18),
+    factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+    isGasless: true,
+  },
+  // Alias (some SKALE RPCs also accept /v1/bite-v2-sandbox)
+  'bite-v2-sandbox': {
+    name: 'bite-v2-sandbox',
+    chainId: 103_698_795,
+    rpcUrl: process.env.RPC_URL || 'https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox',
+    explorerUrl: process.env.EXPLORER_URL || 'https://base-sepolia-testnet-explorer.skalenodes.com:10032',
+    asset: envAssetAddress('0x0000000000000000000000000000000000000000' as Address),
+    assetSymbol: process.env.ASSET_SYMBOL || 'SKLA',
+    assetDecimals: envInt('ASSET_DECIMALS', 18),
+    factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+    isGasless: true,
+  },
   'skale': {
     name: 'skale',
     chainId: Number(process.env.CHAIN_ID || 0),

@@ -1,12 +1,13 @@
 {
-  "network": "skale-base-sepolia",
-  "chainName": "SKALE Base Sepolia",
-  "chainId": 324705682,
-  "rpcUrl": "https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha",
-  "explorerUrl": "https://base-sepolia-testnet-explorer.skalenodes.com",
+  "network": "bite-v2-sandbox-2",
+  "chainName": "BITE V2 Sandbox 2",
+  "chainId": 103698795,
+  "rpcUrl": "https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2",
+  "explorerUrl": "https://base-sepolia-testnet-explorer.skalenodes.com:10032",
   "contracts": {
     "issueEscrowFactory": "",
-    "skla": ""
+    "x402Token": "",
+    "notes": "Deploy MockSKLA (or any mintable ERC20) and set ASSET_ADDRESS to that token for x402 funding proofs."
   },
   "signers": {
     "maintainer": "",
@@ -14,5 +15,5 @@
   },
   "deployed": false,
   "deployedAt": null,
-  "notes": "Deploy with: forge script script/DeploySKALE.s.sol --rpc-url $SKALE_BASE_SEPOLIA_RPC_URL --broadcast. SKALE is gasless — no native token needed for tx fees."
+  "notes": "Deploy with: forge script script/DeploySKALE.s.sol --rpc-url $BITE_V2_SANDBOX_2_RPC_URL --broadcast --evm-version istanbul. Faucet: request sFUEL via SKALE Builders Telegram."
 }
