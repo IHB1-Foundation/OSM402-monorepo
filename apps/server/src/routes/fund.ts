@@ -10,7 +10,12 @@ import {
   markIssueFunded,
   type IssueRecord,
 } from '../store/issues.js';
-import { depositToEscrow, createEscrow, predictEscrowAddress } from '../services/escrow.js';
+import {
+  depositToEscrow,
+  createEscrow,
+  predictEscrowAddress,
+  verifyEscrowBalance,
+} from '../services/escrow.js';
 import { activeChain } from '../config/chains.js';
 
 const router: ExpressRouter = Router();
@@ -156,6 +161,16 @@ router.post(
       return;
     }
 
+    const x402MockMode = process.env.X402_MOCK_MODE === 'true';
+    const escrowMockMode = process.env.ESCROW_MOCK_MODE !== 'false';
+    if (!x402MockMode && escrowMockMode) {
+      res.status(500).json({
+        error: 'Configuration mismatch',
+        details: 'X402_MOCK_MODE=false requires ESCROW_MOCK_MODE=false for deterministic onchain escrow funding',
+      });
+      return;
+    }
+
     // Compute repo key hash for escrow creation
     const repoKeyHash = keccak256(toHex(issue.repoKey));
     const policyHashHex = issue.policyHash as `0x${string}`;
@@ -173,20 +188,43 @@ router.post(
       chainId: issue.chainId,
     });
 
-    // Deposit funds into escrow
-    const depositResult = await depositToEscrow({
-      escrowAddress,
-      asset: issue.asset as Address,
-      amount: BigInt(issue.bountyCap),
-      chainId: issue.chainId,
-    });
-
-    if (!depositResult.success) {
-      res.status(500).json({
-        error: 'Escrow deposit failed',
-        details: depositResult.error,
+    let fundingTxHash: string | undefined;
+    if (x402MockMode) {
+      // Local dev: simulate escrow deposit (since the x402 receipt is not backed by an onchain transfer)
+      const depositResult = await depositToEscrow({
+        escrowAddress,
+        asset: issue.asset as Address,
+        amount: BigInt(issue.bountyCap),
+        chainId: issue.chainId,
       });
-      return;
+
+      if (!depositResult.success) {
+        res.status(500).json({
+          error: 'Escrow deposit failed',
+          details: depositResult.error,
+        });
+        return;
+      }
+
+      fundingTxHash = depositResult.txHash;
+    } else {
+      // Testnet: x402 proof is the onchain transfer to the predicted escrow address.
+      // Do not double-deposit from the agent wallet.
+      fundingTxHash = receipt.txHash || receipt.paymentHash;
+
+      const balance = await verifyEscrowBalance(
+        escrowAddress,
+        issue.asset as Address,
+        issue.chainId,
+      );
+
+      if (balance < BigInt(issue.bountyCap)) {
+        res.status(402).json({
+          error: 'Escrow not funded onchain',
+          details: `Escrow balance ${balance.toString()} < required ${issue.bountyCap}`,
+        });
+        return;
+      }
     }
 
     // Compute EIP-712 intent hash (must match onchain)
@@ -203,23 +241,25 @@ router.post(
 
     const intentHash = hashIntent(intent, escrowAddress, BigInt(issue.chainId));
 
-    // Mark issue as funded with deposit txHash
+    // Mark issue as funded with the onchain funding tx (or mock deposit tx)
     const fundedIssue = markIssueFunded(
       issue.repoKey,
       issue.issueNumber,
       escrowAddress,
       intentHash,
-      depositResult.txHash
+      fundingTxHash
     );
 
     res.json({
       success: true,
-      message: 'Issue funded and deposited to escrow',
+      message: x402MockMode
+        ? 'Issue funded and deposited to escrow (mock)'
+        : 'Issue funded via onchain transfer to escrow',
       issue: fundedIssue,
       escrow: {
         address: escrowAddress,
         createTxHash,
-        depositTxHash: depositResult.txHash,
+        depositTxHash: fundingTxHash,
       },
       receipt: {
         paymentHash: receipt.paymentHash,
