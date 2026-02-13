@@ -569,7 +569,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Replace MVP stubs with real GitHub reads to improve “Commerce Realism” and “Ship-ability”.
 - Tasks:
@@ -666,7 +666,7 @@ A ticket is DONE only if:
 
 - Type: Docs
 - Priority: P1
-- Status: TODO
+- Status: DONE
 - Description:
   - Make the demo flow easy to repeat and hard to break under time pressure.
 - Tasks:
