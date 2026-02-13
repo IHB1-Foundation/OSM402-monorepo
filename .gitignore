@@ -42,6 +42,7 @@ contracts/broadcast/
 
 # Misc
 *.tsbuildinfo
+artifacts/
 
 # Local-only docs (demo notes)
 DEMO.md

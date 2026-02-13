@@ -8,6 +8,8 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
     "test": "pnpm -r test",
+    "demo:ap2-failure": "bash scripts/ap2-failure-mode.sh",
+    "evidence:collect": "bash scripts/evidence-pack.sh",
     "lint": "eslint 'apps/**/src/**/*.ts' 'packages/**/src/**/*.ts' --no-error-on-unmatched-pattern",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

@@ -14,7 +14,7 @@ GitPay.ai is a GitHub-native bounty system that enables instant, auditable payou
 
 - **x402 Funding** — HTTP 402 challenge-response for payment
 - **EIP-712 Mandates** — Intent (maintainer) + Cart (agent) authorization
-- **Onchain Escrow** — Per-issue escrow on Base Sepolia with replay protection
+- **Onchain Escrow** — Per-issue escrow on BITE V2 Sandbox 2 (SKALE) with replay protection
 - **Policy Engine** — Deterministic payout tiers from `.gitpay.yml`
 - **AI Reviewer** — Gemini for risk flags and HOLD signals (never decides amounts)
 
@@ -70,6 +70,37 @@ See [docs/DEMO.md](docs/DEMO.md) for a step-by-step demo script covering:
 - Funding via x402 (402 challenge → payment → escrow)
 - Merge payout simulation
 - Idempotency verification
+- PASS/HOLD split scenarios
+- AP2 failure mode evidence
+
+## Hackathon Submission Focus
+
+Current recommended tracks:
+
+1. **Overall Track: Best Agentic App / Agent**
+2. **Best Integration of AP2**
+
+Track mapping details are documented in [docs/SUBMISSION.md](docs/SUBMISSION.md).
+
+### AP2 Failure Mode Proof
+
+Run contract-level authorization failure tests (invalid signer, replay, mismatches):
+
+```bash
+pnpm demo:ap2-failure
+```
+
+### Evidence Bundle (Screenshots/Logs/JSON)
+
+Collect one submission folder with API responses and AP2 failure logs:
+
+```bash
+pnpm evidence:collect
+```
+
+Output directory:
+
+- `artifacts/evidence-<timestamp>/`
 
 ### Contracts
 
@@ -129,7 +160,7 @@ See [.env.example](.env.example) for the full list. Key variables:
 | `X402_MOCK_MODE` | Use mock payments for local dev (default: true) |
 | `GITHUB_WEBHOOK_SECRET` | GitHub webhook HMAC secret |
 | `GEMINI_API_KEY` | Gemini API key for AI review |
-| `CHAIN_ID` | Target chain (default: 84532 Base Sepolia) |
+| `CHAIN_ID` | Target chain (default: 103698795 BITE V2 Sandbox 2) |
 
 ## License
 
