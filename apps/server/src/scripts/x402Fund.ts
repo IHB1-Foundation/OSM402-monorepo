@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   const rpcUrl =
     args['rpc-url'] ||
     process.env.RPC_URL ||
-    'https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha';
+    'https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2';
 
   const repoKey = requireArg(args, 'repo');
   const issueNumber = Number(requireArg(args, 'issue'));
@@ -162,4 +162,3 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));
   process.exitCode = 1;
 });
-
