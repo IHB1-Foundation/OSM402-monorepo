@@ -519,7 +519,7 @@ A ticket is DONE only if:
 
 - Type: Bugfix
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Make GitHub webhook signature verification correct for real GitHub deliveries.
 - Tasks:
@@ -535,7 +535,7 @@ A ticket is DONE only if:
 
 - Type: Security
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Prevent arbitrary callers from triggering funding/payout in public deployments.
 - Tasks:
@@ -551,7 +551,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Populate `pr.contributorAddress` reliably so payout can auto-execute on merge.
 - Tasks:
@@ -585,7 +585,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Make chain selection/config first-class so demo can run on SKALE testnet without Base-specific constants.
 - Tasks:
@@ -600,13 +600,13 @@ A ticket is DONE only if:
 
 - Type: Infra
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Enable reproducible SKALE testnet deployments and address recording.
 - Tasks:
   - Add `deploy:skale-<network>` scripts (Foundry) and an address registry JSON under `apps/server/config/chains/`.
   - Document the chosen SKALE testnet (RPC + chainId + explorer).
-  - (If needed) deploy a demo ERC20 (MockUSDC) on SKALE testnet and record address.
+  - Deploy a demo ERC20 (MockSKLA) on SKALE testnet and record address.
 - Acceptance Criteria:
   - One command deploys contracts to the chosen SKALE testnet and prints/records addresses.
 - Dependencies: GP-013
@@ -615,7 +615,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P0
-- Status: TODO
+- Status: DONE
 - Description:
   - Make “fund → escrow deposit → merge → release” execute on SKALE testnet with real txs.
 - Tasks:
@@ -632,7 +632,7 @@ A ticket is DONE only if:
 
 - Type: Feature
 - Priority: P1
-- Status: TODO
+- Status: DONE
 - Description:
   - Replace mock x402 acceptance with verifiable proofs suitable for judging “Commerce Realism”.
 - Tasks:
@@ -646,17 +646,17 @@ A ticket is DONE only if:
   - `/api/fund` only marks FUNDED when an onchain transfer proof is valid.
 - Dependencies: GP-030, GP-032, GP-084, GP-086
 
-### GP-088 — Persistence and robustness (Prisma + SQLite)
+### GP-088 — Persistence and robustness (SQLite-backed stores)
 
 - Type: Infra
 - Priority: P1
-- Status: TODO
+- Status: DONE
 - Description:
   - Replace in-memory stores so restarts don’t lose state and idempotency is durable.
 - Tasks:
-  - Add Prisma schema for issues/PRs/payouts/events with unique constraints.
-  - Migrate stores to DB-backed implementations.
-  - Add migrations + local dev bootstrap.
+  - Migrate stores to SQLite-backed implementations with unique constraints.
+  - Add lightweight migration/alter helpers for incremental schema updates.
+  - Ensure webhook idempotency survives restarts (delivery IDs persisted).
 - Acceptance Criteria:
   - Restarting the server does not lose funded/payout state.
   - Uniqueness guarantees remain enforced at DB level.
