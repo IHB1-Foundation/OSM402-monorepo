@@ -4,26 +4,41 @@
 
 ---
 
-## Quick Start (Local Mock Demo)
+## Demo Mode (Hackathon): Real Chain Only
 
-After setup, run the entire happy path in a single shot:
+For the hackathon demo, use:
 
-```bash
-./scripts/demo.sh
-```
+- Chain: **BITE V2 Sandbox 2**
+- Funding: **real x402 proof (onchain txHash)**
+- Escrow: **real onchain `createEscrow` + `release(...)`**
+- Flow: “Issue registered → agent funds → PR merged → auto payout”
 
-The script runs all 6 demo steps automatically: health check, funding (402 challenge → payment), PR open with address claim, merge webhook, payout execution, and idempotency verification.
+Local mock mode is still available for development/regression, but not used in the demo.
 
-This quick start assumes:
+---
 
-- `X402_MOCK_MODE=true`
-- `ESCROW_MOCK_MODE=true`
-
-Options:
+## Quick Start (Real Chain, Agent-Driven)
 
 ```bash
-./scripts/demo.sh --no-color            # disable color output
-DEMO_BASE_URL=http://host:4000 ./scripts/demo.sh  # custom server URL
+# 0) install/build
+pnpm install
+pnpm -r build
+cp .env.example .env
+
+# 1) deploy contracts to BITE V2 Sandbox 2
+export BITE_V2_SANDBOX_2_RPC_URL="https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2"
+export DEPLOYER_PRIVATE_KEY="<deployer_key>"
+pnpm --filter contracts deploy:bite-v2-sandbox-2
+
+# 2) run server (with real-chain env)
+pnpm dev --filter server
+
+# 3) after creating a bounty issue on GitHub, run the buyer agent locally
+pnpm --filter server tsx src/scripts/agentFundOpenBounties.ts \
+  --repo "owner/repo" \
+  --secret "$GITPAY_ACTION_SHARED_SECRET" \
+  --private-key "$X402_PAYER_PRIVATE_KEY" \
+  --rpc-url "https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2"
 ```
 
 ---
@@ -56,9 +71,23 @@ Edit `.env` with these values:
 GITHUB_WEBHOOK_SECRET=demo-secret
 GITPAY_ACTION_SHARED_SECRET=demo-action-secret
 
-# Mock modes (recommended for stable demo)
-X402_MOCK_MODE=true
-ESCROW_MOCK_MODE=true
+# Real chain demo
+CHAIN_NAME=bite-v2-sandbox-2
+X402_MOCK_MODE=false
+ESCROW_MOCK_MODE=false
+
+# BITE V2 Sandbox 2 USDC (decimals 6)
+ASSET_ADDRESS=0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8
+ASSET_SYMBOL=USDC
+ASSET_DECIMALS=6
+
+# Onchain contracts (fill after deployment)
+ESCROW_FACTORY_ADDRESS=<FACTORY_ADDRESS>
+
+# Keys
+GITPAY_MAINTAINER_PRIVATE_KEY=<intent_signer_key>
+GITPAY_AGENT_PRIVATE_KEY=<cart_signer_and_tx_sender_key>
+X402_PAYER_PRIVATE_KEY=<buyer_funding_key>
 ```
 
 ### 4. Start Server
@@ -69,7 +98,7 @@ pnpm dev --filter server
 
 Verify: `curl http://localhost:3000/api/health | jq`
 
-### 5. Optional: SKALE Hackathon Chain Mode (BITE V2 Sandbox 2)
+### 5. Faucet (sFUEL / USDC)
 
 Use this when you want the full “Commerce Realism” story:
 
@@ -82,38 +111,11 @@ Use this when you want the full “Commerce Realism” story:
 - [ ] Run server with SKALE config and real modes
 - [ ] Fund using the provided `x402Fund.ts` helper
 
-Faucet (if you need sFUEL / test assets): request in SKALE Builders Telegram:
+Request in SKALE Builders Telegram:
 
 - `https://t.me/+dDdvu5T6BOEzZDEx`
 
-#### 5.1 Set SKALE env vars in `.env`
-
-  ```bash
-  CHAIN_NAME=bite-v2-sandbox-2
-  # Optional overrides (defaults exist for bite-v2-sandbox-2 preset)
-  RPC_URL=https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2
-  EXPLORER_URL=https://base-sepolia-testnet-explorer.skalenodes.com:10032
-
-  # Asset (recommended: chain USDC)
-  # BITE V2 Sandbox 2 USDC (decimals 6): 0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8
-  # (You can omit ASSET_* entirely if you keep the preset defaults.)
-  ASSET_SYMBOL=USDC
-  ASSET_DECIMALS=6
-  ASSET_ADDRESS=0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8
-
-  # Escrow factory
-  ESCROW_FACTORY_ADDRESS=<FACTORY_ADDRESS>
-
-  # Real modes
-  X402_MOCK_MODE=false
-  ESCROW_MOCK_MODE=false
-
-  # Agent keys (required for real onchain release)
-  GITPAY_MAINTAINER_PRIVATE_KEY=<intent_signer_key>
-  GITPAY_AGENT_PRIVATE_KEY=<cart_signer_and_tx_sender_key>
-  ```
-
-#### 5.2 Deploy contracts to BITE V2 Sandbox 2
+### 6. Deploy contracts to BITE V2 Sandbox 2
 
   ```bash
   export BITE_V2_SANDBOX_2_RPC_URL="https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2"
@@ -144,9 +146,17 @@ For a live GitHub demo (webhook from a real repo):
 
 ---
 
-## Happy Path Demo Script (Manual)
+## Happy Path Demo (Real Chain, Best-looking)
 
-All commands assume server is running on `http://localhost:3000`.
+This demo is designed to look “agentic”:
+
+1) Maintainer registers a bounty issue on GitHub (label)  
+2) Buyer agent funds it (x402 402 → onchain USDC transfer proof)  
+3) Contributor opens PR with payout address token  
+4) Merge triggers onchain payout automatically  
+
+See templates under `docs/demo-assets/`.
+Suggested demo target repo contents are in `examples/bite-demo-repo/` (copy into a fresh GitHub repo).
 
 ### Step 1: Health Check (10s)
 
@@ -156,7 +166,7 @@ curl -s http://localhost:3000/api/health | jq
 
 Expected: `{"status":"ok","timestamp":"...","version":"0.1.0"}`
 
-### Step 2: Fund a Bounty via x402 (Mock Mode) (60s)
+### Step 2: Fund a Bounty via x402 (Real Mode) (60–120s)
 
 #### 2a. Call without payment → 402 challenge
 
@@ -170,33 +180,7 @@ curl -s -w "\nHTTP %{http_code}\n" \
 
 Expected: `HTTP 402` with payment requirements JSON.
 
-#### 2b. Retry with x402 payment header → funded
-
-```bash
-PAYMENT=$(echo -n '{"paymentHash":"demo-001","amount":"10000000","chainId":84532,"payer":"0x0000000000000000000000000000000000000001"}' | base64)
-
-curl -s -X POST http://localhost:3000/api/fund \
-  -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: demo-action-secret" \
-  -H "X-Payment: $PAYMENT" \
-  -d '{"repoKey":"demo/repo","issueNumber":1,"bountyCapUsd":10}' | jq
-```
-
-Expected: `200` with escrowAddress, depositTxHash, intentHash.
-
-#### 2c. Verify funding status
-
-```bash
-curl -s http://localhost:3000/api/fund/demo/repo/1 \
-  -H "X-GitPay-Secret: demo-action-secret" | jq '.issue.status'
-```
-
-Expected: `"FUNDED"`
-
-### Step 2 (Alt): Fund via x402 on SKALE Testnet (Real Mode) (60–120s)
-
-In real mode (`X402_MOCK_MODE=false`), the server verifies an onchain ERC20 transfer
-to the required escrow address. The safest way is to use the helper script:
+#### 2b. Buyer agent funds it (recommended)
 
 ```bash
 pnpm --filter server tsx src/scripts/x402Fund.ts \
@@ -209,61 +193,52 @@ pnpm --filter server tsx src/scripts/x402Fund.ts \
   --private-key "<PAYER_PRIVATE_KEY>"
 ```
 
-### Step 3: Simulate PR Open + Address Claim (30s)
+#### 2c. Or: fund all open bounty issues (best “agentic” look)
 
 ```bash
-SIG=$(echo -n '{"action":"opened","number":42,"pull_request":{"number":42,"title":"Fix #1","body":"Closes #1\ngitpay:address 0x1234567890abcdef1234567890abcdef12345678","merged":false,"merge_commit_sha":null,"user":{"login":"contributor"},"head":{"sha":"head123"},"base":{"ref":"main"},"changed_files":2,"additions":30,"deletions":5},"repository":{"full_name":"demo/repo","default_branch":"main"}}' | openssl dgst -sha256 -hmac "demo-secret" | awk '{print "sha256="$2}')
-
-curl -s -X POST http://localhost:3000/api/webhooks/github \
-  -H "Content-Type: application/json" \
-  -H "X-GitHub-Event: pull_request" \
-  -H "X-GitHub-Delivery: demo-pr-open-001" \
-  -H "X-Hub-Signature-256: $SIG" \
-  -d '{"action":"opened","number":42,"pull_request":{"number":42,"title":"Fix #1","body":"Closes #1\ngitpay:address 0x1234567890abcdef1234567890abcdef12345678","merged":false,"merge_commit_sha":null,"user":{"login":"contributor"},"head":{"sha":"head123"},"base":{"ref":"main"},"changed_files":2,"additions":30,"deletions":5},"repository":{"full_name":"demo/repo","default_branch":"main"}}' | jq
+pnpm --filter server tsx src/scripts/agentFundOpenBounties.ts \
+  --repo "demo/repo" \
+  --secret "demo-action-secret" \
+  --private-key "<PAYER_PRIVATE_KEY>" \
+  --rpc-url "https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2"
 ```
 
-### Step 4: Simulate Merge → Payout (60s)
+### Step 3: Open PR (Real GitHub) + Address Claim (60s)
 
-```bash
-MERGE_BODY='{"action":"closed","number":42,"pull_request":{"number":42,"title":"Fix #1","body":"Closes #1\ngitpay:address 0x1234567890abcdef1234567890abcdef12345678","merged":true,"merge_commit_sha":"abc123def456789012345678901234567890abcd","user":{"login":"contributor"},"head":{"sha":"head123"},"base":{"ref":"main"},"changed_files":2,"additions":30,"deletions":5},"repository":{"full_name":"demo/repo","default_branch":"main"}}'
+Create a PR in your demo target repo using:
 
-SIG=$(echo -n "$MERGE_BODY" | openssl dgst -sha256 -hmac "demo-secret" | awk '{print "sha256="$2}')
+- PR title/body template: `docs/demo-assets/PR_EXAMPLE.md`
+- Ensure the body includes both:
+  - `Closes #<ISSUE_NUMBER>`
+  - `gitpay:address 0x...`
 
-curl -s -X POST http://localhost:3000/api/webhooks/github \
-  -H "Content-Type: application/json" \
-  -H "X-GitHub-Event: pull_request" \
-  -H "X-GitHub-Delivery: demo-merge-001" \
-  -H "X-Hub-Signature-256: $SIG" \
-  -d "$MERGE_BODY" | jq
-```
+Expected:
 
-Expected: Payout created (PENDING or auto-executed to DONE).
+- GitPay posts an AI review comment on the PR (if Gemini is configured).
+- GitPay captures the payout address from the PR body.
 
-### Step 5: Execute Payout (30s)
+### Step 4: Merge PR → Auto Payout (60–120s)
 
-```bash
-curl -s -X POST http://localhost:3000/api/payout/execute \
-  -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: demo-action-secret" \
-  -d '{"repoKey":"demo/repo","prNumber":42}' | jq
-```
+Merge the PR on GitHub.
 
-Expected: `200` with txHash (mock in dev mode).
+Expected:
 
-### Step 6: Verify Idempotency (20s)
+- GitPay receives the merge webhook.
+- GitPay constructs mandates and sends `escrow.release(...)` onchain.
+- The PR receives a **“Paid”** comment including the transaction link.
 
-Re-send the same merge webhook:
+### Step 5: Verify Onchain (30s)
 
-```bash
-curl -s -X POST http://localhost:3000/api/webhooks/github \
-  -H "Content-Type: application/json" \
-  -H "X-GitHub-Event: pull_request" \
-  -H "X-GitHub-Delivery: demo-merge-001" \
-  -H "X-Hub-Signature-256: $SIG" \
-  -d "$MERGE_BODY" | jq
-```
+Open the tx link from the **Paid** comment and verify:
 
-Expected: `"Delivery already processed"` — no duplicate payout.
+- token: USDC
+- recipient: contributor address
+- event: `Released` emitted by the escrow contract
+
+### Step 6: Idempotency (No double-pay)
+
+GitHub may redeliver webhooks; the server deduplicates by `X-GitHub-Delivery`.
+If you resend the same delivery, it is ignored safely.
 
 ---
 
@@ -273,12 +248,12 @@ Expected: `"Delivery already processed"` — no duplicate payout.
 |------|--------|-----------------|----------|
 | 1 | Health check | Server OK | 10s |
 | 2a | Fund (no payment) | 402 with requirements | 15s |
-| 2b | Fund (with x402) | Escrow funded, intentHash | 15s |
+| 2b | Buyer agent funds (x402) | Escrow funded, intentHash | 30–90s |
 | 2c | Verify status | Issue = FUNDED | 10s |
-| 3 | PR open + address claim | PR recorded, address captured | 15s |
-| 4 | Merge webhook | Payout pipeline triggered | 15s |
-| 5 | Execute payout | TX hash recorded | 15s |
-| 6 | Duplicate webhook | Safely ignored | 10s |
+| 3 | PR open + address claim | PR recorded, address captured | 30–60s |
+| 4 | Merge PR | Auto payout executed | 30–90s |
+| 5 | Explorer proof | TX + Released event | 15–30s |
+| 6 | Idempotency | No double pay | — |
 
 **Total: ~2 minutes** (automated script) / ~4 minutes (manual with narration)
 
