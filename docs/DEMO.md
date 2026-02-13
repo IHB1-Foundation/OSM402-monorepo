@@ -82,6 +82,10 @@ Use this when you want the full “Commerce Realism” story:
 - [ ] Run server with SKALE config and real modes
 - [ ] Fund using the provided `x402Fund.ts` helper
 
+Faucet (if you need sFUEL / test assets): request in SKALE Builders Telegram:
+
+- `https://t.me/+dDdvu5T6BOEzZDEx`
+
 #### 5.1 Set SKALE env vars in `.env`
 
   ```bash
