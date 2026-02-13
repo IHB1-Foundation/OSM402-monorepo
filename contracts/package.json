@@ -10,6 +10,8 @@
     "deploy:base-sepolia:dry": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_SEPOLIA_RPC_URL",
     "deploy:skale-base-sepolia": "forge script script/DeploySKALE.s.sol:DeploySKALE --rpc-url $SKALE_BASE_SEPOLIA_RPC_URL --broadcast",
     "deploy:skale-base-sepolia:dry": "forge script script/DeploySKALE.s.sol:DeploySKALE --rpc-url $SKALE_BASE_SEPOLIA_RPC_URL",
+    "deploy:bite-v2-sandbox-2": "forge script script/DeploySKALE.s.sol:DeploySKALE --rpc-url $BITE_V2_SANDBOX_2_RPC_URL --broadcast --evm-version istanbul",
+    "deploy:bite-v2-sandbox-2:dry": "forge script script/DeploySKALE.s.sol:DeploySKALE --rpc-url $BITE_V2_SANDBOX_2_RPC_URL --evm-version istanbul",
     "clean": "forge clean"
   }
 }
