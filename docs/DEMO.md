@@ -4,7 +4,7 @@
 
 ---
 
-## Quick Start (One Command)
+## Quick Start (Local Mock Demo)
 
 After setup, run the entire happy path in a single shot:
 
@@ -13,6 +13,11 @@ After setup, run the entire happy path in a single shot:
 ```
 
 The script runs all 6 demo steps automatically: health check, funding (402 challenge → payment), PR open with address claim, merge webhook, payout execution, and idempotency verification.
+
+This quick start assumes:
+
+- `X402_MOCK_MODE=true`
+- `ESCROW_MOCK_MODE=true`
 
 Options:
 
@@ -64,27 +69,60 @@ pnpm dev --filter server
 
 Verify: `curl http://localhost:3000/api/health | jq`
 
-### 5. Optional: SKALE Testnet Deploy (for "real deploy" proof)
+### 5. Optional: SKALE Testnet Mode (x402-supported, real onchain funding + payout)
 
-Use this to show contracts deployed on a real testnet during the demo.
+Use this when you want the full “Commerce Realism” story:
 
-- [ ] Deployer private key with sFUEL on SKALE Europa Hub Testnet
-- [ ] Set SKALE env vars in `.env`:
+- x402 challenge (HTTP 402)
+- **Onchain ERC20 transfer proof** (txHash)
+- Escrow `release(...)` on SKALE testnet
+
+- [ ] Choose SKALE testnet: **SKALE Base Sepolia** (x402 facilitator support commonly calls this `skale-base-spolia`)
+- [ ] Deploy contracts (MockSKLA + IssueEscrowFactory)
+- [ ] Run server with SKALE config and real modes
+- [ ] Fund using the provided `x402Fund.ts` helper
+
+#### 5.1 Set SKALE env vars in `.env`
+
   ```bash
-  CHAIN_NAME=skale
-  CHAIN_ID=1444673419
-  RPC_URL=https://testnet.skalenodes.com/v1/juicy-low-small-testnet
-  EXPLORER_URL=https://juicy-low-small-testnet.explorer.testnet.skalenodes.com
+  CHAIN_NAME=skale-base-spolia
+  # Optional overrides (defaults exist for skale-base-spolia preset)
+  RPC_URL=https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha
+  EXPLORER_URL=https://base-sepolia-testnet-explorer.skalenodes.com
+
+  # Asset (SKLA)
+  ASSET_SYMBOL=SKLA
+  ASSET_DECIMALS=18
+  ASSET_ADDRESS=<MOCK_SKLA_ADDRESS>
+
+  # Escrow factory
+  ESCROW_FACTORY_ADDRESS=<FACTORY_ADDRESS>
+
+  # Real modes
+  X402_MOCK_MODE=false
+  ESCROW_MOCK_MODE=false
+
+  # Agent keys (required for real onchain release)
+  GITPAY_MAINTAINER_PRIVATE_KEY=<intent_signer_key>
+  GITPAY_AGENT_PRIVATE_KEY=<cart_signer_and_tx_sender_key>
   ```
-- [ ] Deploy contracts:
+
+#### 5.2 Deploy contracts to SKALE Base Sepolia
+
   ```bash
-  cd contracts
-  DEPLOYER_PRIVATE_KEY=<key> forge script script/DeploySKALE.s.sol \
-    --rpc-url https://testnet.skalenodes.com/v1/juicy-low-small-testnet \
-    --broadcast
+  export SKALE_BASE_SEPOLIA_RPC_URL="https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha"
+  export DEPLOYER_PRIVATE_KEY="<key>"
+  pnpm --filter contracts deploy:skale-base-sepolia
   ```
-- [ ] Record factory + MockUSDC addresses in `apps/server/config/chains/skale-testnet.json`
-- [ ] Open explorer to show deployed contract: `https://juicy-low-small-testnet.explorer.testnet.skalenodes.com/address/<FACTORY>`
+
+Record the printed addresses into `.env`:
+
+- `MockSKLA` → `ASSET_ADDRESS`
+- `IssueEscrowFactory` → `ESCROW_FACTORY_ADDRESS`
+
+Explorer proof:
+
+- `https://base-sepolia-testnet-explorer.skalenodes.com/address/<FACTORY>`
 
 ### 6. Optional: Real GitHub Integration
 
@@ -112,7 +150,7 @@ curl -s http://localhost:3000/api/health | jq
 
 Expected: `{"status":"ok","timestamp":"...","version":"0.1.0"}`
 
-### Step 2: Fund a Bounty via x402 (60s)
+### Step 2: Fund a Bounty via x402 (Mock Mode) (60s)
 
 #### 2a. Call without payment → 402 challenge
 
@@ -148,6 +186,22 @@ curl -s http://localhost:3000/api/fund/demo/repo/1 \
 ```
 
 Expected: `"FUNDED"`
+
+### Step 2 (Alt): Fund via x402 on SKALE Testnet (Real Mode) (60–120s)
+
+In real mode (`X402_MOCK_MODE=false`), the server verifies an onchain ERC20 transfer
+to the required escrow address. The safest way is to use the helper script:
+
+```bash
+pnpm --filter server tsx src/scripts/x402Fund.ts \
+  --base-url http://localhost:3000 \
+  --secret "demo-action-secret" \
+  --repo "demo/repo" \
+  --issue 1 \
+  --bounty 10 \
+  --rpc-url "https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha" \
+  --private-key "<PAYER_PRIVATE_KEY>"
+```
 
 ### Step 3: Simulate PR Open + Address Claim (30s)
 
@@ -231,7 +285,7 @@ Expected: `"Delivery already processed"` — no duplicate payout.
 | **AI Readiness** | Gemini structured review + riskFlags → HOLD | PR open triggers AI review | Structured JSON output with summary, riskFlags, testObservations |
 | **Commerce Realism** | x402 HTTP 402 → payment → onchain escrow | Steps 2a–2b | Real 402 challenge-response, payment verification, escrow deposit |
 | **Ship-ability** | Full pipeline: fund → merge → payout | Steps 2–5 | End-to-end flow with SQLite persistence, idempotency |
-| **Partner Integration (SKALE)** | Gasless deployment, chain adapter, MockUSDC | Optional SKALE deploy | Contracts on SKALE Europa Hub Testnet, gasless tx |
+| **Partner Integration (SKALE)** | Gasless deployment, chain adapter, MockSKLA | Optional SKALE testnet mode | Contracts on SKALE Base Sepolia, gasless tx |
 | **Composability** | EIP-712 mandates, deterministic escrow (CREATE2) | Intent/Cart hashes in output | Two-mandate authorization, deterministic escrow addresses |
 
 ---
