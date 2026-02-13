@@ -411,7 +411,7 @@ contract IssueEscrowTest is Test {
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256("GitPay"),
+                keccak256("OSM402"),
                 keccak256("1"),
                 block.chainid,
                 escrowAddr

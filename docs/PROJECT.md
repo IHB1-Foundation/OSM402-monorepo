@@ -1,10 +1,10 @@
 # PROJECT.md
 
-## GitPay.ai
+## OSM402
 
 **Tagline:** Fund with x402. Merge with Proof. Pay by Mandate.
 
-GitPay.ai is a GitHub-native bounty system that enables instant, auditable payouts on merge without trusting an AI model to decide who gets paid.
+OSM402 is a GitHub-native bounty system that enables instant, auditable payouts on merge without trusting an AI model to decide who gets paid.
 
 It combines:
 
@@ -44,7 +44,7 @@ This results in review bottlenecks and fewer paid contributions.
 
 ## 2) Solution
 
-GitPay.ai introduces a three-layer trust model:
+OSM402 introduces a three-layer trust model:
 
 1. **Funding is real (x402 plus escrow)**
    - A bounty is not a promise; it is a funded onchain escrow position.
@@ -110,7 +110,7 @@ GitPay.ai introduces a three-layer trust model:
   - Submits PRs, expects fast payout, wants clear rules.
 - **CI Agent (GitHub Action)**
   - Pays via x402 to fund bounties (as configured), runs tests.
-- **GitPay Agent (Server)**
+- **OSM402 Agent (Server)**
   - Verifies GitHub events, computes deterministic payout, constructs cart mandate, executes payout.
 
 ---
@@ -120,32 +120,32 @@ GitPay.ai introduces a three-layer trust model:
 ### 6.1 Fund a bounty (x402)
 
 1. Maintainer adds label: `bounty:$10` to an issue.
-2. GitHub Action calls GitPay API: `POST /api/fund`.
-3. GitPay responds: `402 Payment Required` with payment requirements (network, asset, amount).
+2. GitHub Action calls OSM402 API: `POST /api/fund`.
+3. OSM402 responds: `402 Payment Required` with payment requirements (network, asset, amount).
 4. Action retries with x402 payment payload.
-5. GitPay confirms payment and deposits funds into issue escrow.
-6. GitPay comments on issue: `Funded cap=$10 escrow=... intentHash=...`.
+5. OSM402 confirms payment and deposits funds into issue escrow.
+6. OSM402 comments on issue: `Funded cap=$10 escrow=... intentHash=...`.
 
 ### 6.2 Merge and pay
 
 1. Contributor submits PR referencing the issue.
 2. Required checks pass (CI).
 3. Maintainer merges PR into default branch.
-4. Webhook triggers GitPay payout pipeline:
+4. Webhook triggers OSM402 payout pipeline:
    - verify merge event and required checks,
    - parse `.gitpay.yml` policy,
    - compute payout amount deterministically,
    - run Gemini review (optional) for `HOLD` or proceed,
    - create cart mandate,
    - call escrow contract `release(...)`.
-5. GitPay comments on PR: `Paid $X tx=... cartHash=... intentHash=...`.
+5. OSM402 comments on PR: `Paid $X tx=... cartHash=... intentHash=...`.
 
 ### 6.3 HOLD flow
 
 - If policy or AI flags risk conditions:
-  - GitPay posts: `HOLD - Manual review required (reason=...)`.
+  - OSM402 posts: `HOLD - Manual review required (reason=...)`.
   - Maintainer can later approve via:
-    - updating label to `gitpay:override`,
+    - updating label to `osm402:override`,
     - or issuing a signed override mandate (future).
   - MVP: simplest manual override is a label-based allowlist.
 
@@ -162,7 +162,7 @@ GitPay.ai introduces a three-layer trust model:
    - runs CI,
    - triggers funding call and pays via x402 (for demo),
    - optionally posts contributor wallet address claim if missing.
-3. **GitPay API Server (Node.js/TypeScript)**
+3. **OSM402 API Server (Node.js/TypeScript)**
    - x402 middleware: returns 402 and verifies x402 payment receipts,
    - policy engine: parses `.gitpay.yml`, computes `policyHash`, determines amount,
    - mandate service: constructs and validates EIP-712 typed mandates,
@@ -321,7 +321,7 @@ holdIf:
 
 addressClaim:
   mode: pr_comment
-  command: '/gitpay address'
+  command: '/osm402 address'
 ```
 
 ### 10.3 Deterministic policy hash
@@ -447,15 +447,15 @@ Security:
 ### 14.1 Labels
 
 - `bounty:$<amount>`: create or fund bounty.
-- `gitpay:hold`: manually hold payout.
-- `gitpay:override`: allow payout after hold (MVP).
+- `osm402:hold`: manually hold payout.
+- `osm402:override`: allow payout after hold (MVP).
 
 ### 14.2 Wallet address claim
 
 MVP method: contributor posts PR comment:
 
 ```text
-/gitpay address 0xabc...
+/osm402 address 0xabc...
 ```
 
 Server stores mapping:
@@ -468,7 +468,7 @@ Server stores mapping:
 ## 15) Repository Layout (Proposed)
 
 ```text
-gitpay/
+osm402/
   apps/
     server/          # Node/TS API (Express or Next API)
     github-action/   # Action code for fund + workflow templates
@@ -509,8 +509,8 @@ gitpay/
 
 ### GitHub Action
 
-- `GITPAY_API_URL`
-- `GITPAY_ACTION_SHARED_SECRET`
+- `OSM402_API_URL` (legacy alias: `GITPAY_API_URL`)
+- `OSM402_ACTION_SHARED_SECRET` (legacy alias: `GITPAY_ACTION_SHARED_SECRET`)
 - `X402_PAYER_PRIVATE_KEY` (demo payer key; do not use in production)
 
 ---

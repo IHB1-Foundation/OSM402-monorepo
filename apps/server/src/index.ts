@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { requirePayment, type X402Request } from './middleware/x402.js';
 import { requireSecret } from './middleware/authSecret.js';
 import { activeChain } from './config/chains.js';
+import { getReviewerStatus } from './services/reviewer.js';
 import fundRouter from './routes/fund.js';
 import webhooksRouter from './routes/webhooks.js';
 import payoutRouter from './routes/payout.js';
@@ -27,10 +28,16 @@ app.use('/api/payout', requireSecret, payoutRouter);
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
+  const reviewer = getReviewerStatus();
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '0.1.0',
+    ai: {
+      provider: reviewer.provider,
+      configured: reviewer.configured,
+      model: reviewer.model,
+    },
   });
 });
 
@@ -54,7 +61,7 @@ app.post(
 );
 
 app.listen(config.PORT, () => {
-  console.log(`GitPay server running on port ${config.PORT}`);
+  console.log(`OSM402 server running on port ${config.PORT}`);
   console.log(`Chain: ${activeChain.name} (${activeChain.chainId})`);
   console.log(`Health check: http://localhost:${config.PORT}/api/health`);
 });

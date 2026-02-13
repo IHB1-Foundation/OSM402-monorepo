@@ -54,7 +54,7 @@ holdIf:
 
 addressClaim:
   mode: pr_comment
-  command: "/gitpay address"
+  command: "/osm402 address"
 `;
 
 describe('Policy Parser', () => {

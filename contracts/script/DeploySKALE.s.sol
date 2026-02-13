@@ -3,11 +3,12 @@ pragma solidity ^0.8.24;
 
 import {Script, console} from "forge-std/Script.sol";
 import {IssueEscrowFactory} from "../src/IssueEscrowFactory.sol";
-import {MockSKLA} from "../src/MockSKLA.sol";
 
-/// @title DeploySKALE - Deploy GitPay contracts + MockSKLA to SKALE testnet
+/// @title DeploySKALE - Deploy OSM402 contracts to SKALE testnet
 /// @notice SKALE is gasless — deployer needs no native token balance.
 contract DeploySKALE is Script {
+    address internal constant BITE_V2_USDC = 0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8;
+
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
@@ -20,15 +21,7 @@ contract DeploySKALE is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy MockSKLA (demo asset)
-        MockSKLA skla = new MockSKLA();
-        console.log("MockSKLA deployed at:", address(skla));
-
-        // 2. Mint initial supply to deployer (1,000,000 SKLA)
-        skla.mint(deployer, 1_000_000 * 1e18);
-        console.log("Minted 1,000,000 SKLA to deployer");
-
-        // 3. Deploy IssueEscrowFactory
+        // 1. Deploy IssueEscrowFactory
         IssueEscrowFactory factory = new IssueEscrowFactory(
             maintainerSigner,
             agentSigner
@@ -41,11 +34,12 @@ contract DeploySKALE is Script {
         console.log("");
         console.log("=== SKALE DEPLOYMENT SUMMARY ===");
         console.log("Chain ID:", block.chainid);
-        console.log("MockSKLA:", address(skla));
+        console.log("USDC (existing):", BITE_V2_USDC);
         console.log("Factory:", address(factory));
         console.log("Maintainer:", maintainerSigner);
         console.log("Agent:", agentSigner);
         console.log("");
-        console.log("Save addresses to apps/server/config/chains/skale-testnet.json");
+        console.log("Set ESCROW_FACTORY_ADDRESS in your .env");
+        console.log("ASSET_ADDRESS must stay on USDC for demo");
     }
 }

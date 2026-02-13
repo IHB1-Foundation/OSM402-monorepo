@@ -2,18 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { extractAddress, isValidEvmAddress, extractAddressFromPrBody } from './addressClaim.js';
 
 describe('extractAddress', () => {
-  it('extracts address from /gitpay address command', () => {
+  it('extracts address from /osm402 address command', () => {
+    expect(extractAddress('/osm402 address 0x1234567890abcdef1234567890abcdef12345678'))
+      .toBe('0x1234567890abcdef1234567890abcdef12345678');
+  });
+
+  it('extracts address from osm402:address token', () => {
+    expect(extractAddress('osm402:address 0xDeadBeefDeadBeefDeadBeefDeadBeefDeadBeef'))
+      .toBe('0xDeadBeefDeadBeefDeadBeefDeadBeefDeadBeef');
+  });
+
+  it('still extracts address from legacy /gitpay address command', () => {
     expect(extractAddress('/gitpay address 0x1234567890abcdef1234567890abcdef12345678'))
       .toBe('0x1234567890abcdef1234567890abcdef12345678');
   });
 
-  it('extracts address from gitpay:address token', () => {
-    expect(extractAddress('gitpay:address 0xDeadBeefDeadBeefDeadBeefDeadBeefDeadBeef'))
-      .toBe('0xDeadBeefDeadBeefDeadBeefDeadBeefDeadBeef');
-  });
-
   it('extracts address from multiline text', () => {
-    const text = 'Hey, here is my fix.\n\n/gitpay address 0xAbCdEf0123456789AbCdEf0123456789AbCdEf01\n\nThanks!';
+    const text = 'Hey, here is my fix.\n\n/osm402 address 0xAbCdEf0123456789AbCdEf0123456789AbCdEf01\n\nThanks!';
     expect(extractAddress(text)).toBe('0xAbCdEf0123456789AbCdEf0123456789AbCdEf01');
   });
 
@@ -22,11 +27,11 @@ describe('extractAddress', () => {
   });
 
   it('returns null for invalid address (too short)', () => {
-    expect(extractAddress('/gitpay address 0x1234')).toBeNull();
+    expect(extractAddress('/osm402 address 0x1234')).toBeNull();
   });
 
   it('returns null for invalid address (non-hex)', () => {
-    expect(extractAddress('/gitpay address 0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG')).toBeNull();
+    expect(extractAddress('/osm402 address 0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG')).toBeNull();
   });
 });
 
@@ -45,13 +50,13 @@ describe('isValidEvmAddress', () => {
 });
 
 describe('extractAddressFromPrBody', () => {
-  it('extracts from PR body with gitpay:address token', () => {
-    const body = 'Fixes #42\n\ngitpay:address 0xAbCdEf0123456789AbCdEf0123456789AbCdEf01';
+  it('extracts from PR body with osm402:address token', () => {
+    const body = 'Fixes #42\n\nosm402:address 0xAbCdEf0123456789AbCdEf0123456789AbCdEf01';
     expect(extractAddressFromPrBody(body)).toBe('0xAbCdEf0123456789AbCdEf0123456789AbCdEf01');
   });
 
-  it('extracts from PR body with /gitpay address command', () => {
-    const body = 'Fix the bug\n/gitpay address 0x1234567890abcdef1234567890abcdef12345678';
+  it('extracts from PR body with /osm402 address command', () => {
+    const body = 'Fix the bug\n/osm402 address 0x1234567890abcdef1234567890abcdef12345678';
     expect(extractAddressFromPrBody(body)).toBe('0x1234567890abcdef1234567890abcdef12345678');
   });
 

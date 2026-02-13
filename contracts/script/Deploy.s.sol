@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Script, console} from "forge-std/Script.sol";
 import {IssueEscrowFactory} from "../src/IssueEscrowFactory.sol";
 
-/// @title Deploy - Deployment script for GitPay contracts
+/// @title Deploy - Deployment script for OSM402 contracts
 /// @notice Deploys IssueEscrowFactory to an EVM testnet configured by RPC
 contract Deploy is Script {
     // Default signers for MVP demo - should be configured via env in production

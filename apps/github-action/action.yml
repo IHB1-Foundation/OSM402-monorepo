@@ -1,6 +1,6 @@
-name: 'GitPay Action'
-description: 'Fund GitHub issues via x402 and trigger GitPay payouts'
-author: 'GitPay.ai'
+name: 'OSM402 Action'
+description: 'Fund GitHub issues via x402 and trigger OSM402 payouts'
+author: 'OSM402'
 
 branding:
   icon: 'dollar-sign'
@@ -8,7 +8,7 @@ branding:
 
 inputs:
   api_url:
-    description: 'GitPay API URL'
+    description: 'OSM402 API URL'
     required: true
     default: 'http://localhost:3000'
   action_secret:

@@ -1,5 +1,5 @@
 /**
- * GitPay bot comment templates for GitHub issues and PRs.
+ * OSM402 bot comment templates for GitHub issues and PRs.
  * All comments include hashes, tx links, and amounts.
  */
 
@@ -22,7 +22,7 @@ export function fundingPendingComment(params: {
   chainId: number;
 }): string {
   return [
-    `### GitPay — Bounty Detected`,
+    `### OSM402 — Bounty Detected`,
     '',
     `| Field | Value |`,
     `|-------|-------|`,
@@ -50,7 +50,7 @@ export function fundedComment(params: {
     : `| Deposit TX | pending |`;
 
   return [
-    `### GitPay — Funded`,
+    `### OSM402 — Funded`,
     '',
     `| Field | Value |`,
     `|-------|-------|`,
@@ -76,7 +76,7 @@ export function paidComment(params: {
   mergeSha: string;
 }): string {
   return [
-    `### GitPay — Paid`,
+    `### OSM402 — Paid`,
     '',
     `| Field | Value |`,
     `|-------|-------|`,
@@ -100,7 +100,7 @@ export function holdComment(params: {
   const reasonList = params.reasons.map((r) => `- ${r}`).join('\n');
 
   return [
-    `### GitPay — HOLD`,
+    `### OSM402 — HOLD`,
     '',
     `**Manual review required.**`,
     '',
@@ -112,7 +112,7 @@ export function holdComment(params: {
     `**Hold Reasons:**`,
     reasonList,
     '',
-    `> A maintainer can override by adding the \`gitpay:override\` label.`,
+    `> A maintainer can override by adding the \`osm402:override\` label.`,
   ].join('\n');
 }
 
@@ -125,9 +125,17 @@ export function reviewComment(params: {
   testObservations: string[];
   suggestedTier?: string;
   confidence: number;
+  aiProvider?: string;
+  aiModel?: string;
+  aiSource?: 'gemini' | 'fallback';
 }): string {
   const lines = [
-    `### GitPay Review`,
+    `### OSM402 Review (Gemini)`,
+    '',
+    `| Field | Value |`,
+    `|-------|-------|`,
+    `| AI Engine | ${(params.aiProvider || 'gemini').toUpperCase()} (${params.aiModel || 'gemini-2.0-flash'}) |`,
+    `| AI Source | ${params.aiSource === 'fallback' ? 'fallback (policy-only safe output)' : 'live Gemini API'} |`,
     '',
     `**Summary:**`,
     ...params.summary.map((s) => `- ${s}`),

@@ -1,4 +1,4 @@
-# PR 예시(복붙)
+# PR 예시(기본 / PASS)
 
 ## 제목
 
@@ -11,7 +11,7 @@
 ```
 Closes #<ISSUE_NUMBER>
 
-gitpay:address 0x1234567890abcdef1234567890abcdef12345678
+osm402:address 0x1234567890abcdef1234567890abcdef12345678
 
 ### 변경 내용
 - add()가 a+b를 반환하도록 수정
@@ -20,5 +20,6 @@ gitpay:address 0x1234567890abcdef1234567890abcdef12345678
 - npm test
 ```
 
-> `gitpay:address ...`는 PR open/sync 이벤트에서 자동으로 캡처됩니다.
-
+> `osm402:address ...`는 PR open/sync 이벤트에서 자동으로 캡처됩니다.
+>
+> HOLD 재현용 템플릿은 `docs/demo-assets/PR_HOLD_EXAMPLE.md`를 사용하세요.

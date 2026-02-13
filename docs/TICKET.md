@@ -97,7 +97,7 @@ A ticket is DONE only if:
   - Implement minimal GitHub Action package that can call an HTTP endpoint.
 - Tasks:
   - Setup action runtime (Node 20)
-  - Add sample workflow file under `.github/workflows/gitpay-demo.yml`
+  - Add sample workflow file under `.github/workflows/osm402-demo.yml`
 - Acceptance Criteria:
   - Action runs in a test repo and logs a successful HTTP call
 - Dependencies: GP-001, GP-002
@@ -327,7 +327,7 @@ A ticket is DONE only if:
   - Call internal fund logic
   - Post GitHub comment “Funding pending / Funded ✅ …”
 - Acceptance Criteria:
-  - Labeling an issue causes GitPay comment and creates issue record
+  - Labeling an issue causes OSM402 comment and creates issue record
 - Dependencies: GP-040, GP-031
 
 ### GP-042 — Handle PR events and store PR metadata
@@ -455,7 +455,7 @@ A ticket is DONE only if:
 - Priority: P1
 - Status: DONE
 - Acceptance Criteria:
-  - PR receives structured “GitPay Review” comment
+  - PR receives structured “OSM402 Review” comment
 - Dependencies: GP-061, GP-044
 
 ### GP-063 — HOLD mapping from riskFlags
@@ -539,7 +539,7 @@ A ticket is DONE only if:
 - Description:
   - Prevent arbitrary callers from triggering funding/payout in public deployments.
 - Tasks:
-  - Implement `X-GitPay-Secret` (or similar) verification middleware.
+  - Implement `X-OSM402-Secret` (or similar) verification middleware.
   - Apply to sensitive endpoints (at least `/api/fund`, `/api/payout/execute`).
   - Document how GitHub Action supplies this secret.
 - Acceptance Criteria:
@@ -556,8 +556,8 @@ A ticket is DONE only if:
   - Populate `pr.contributorAddress` reliably so payout can auto-execute on merge.
 - Tasks:
   - Decide and implement one (or more) supported inputs:
-    - PR body token (e.g. `gitpay:address 0x...`)
-    - PR comment command (e.g. `/gitpay address 0x...`)
+    - PR body token (e.g. `osm402:address 0x...`)
+    - PR comment command (e.g. `/osm402 address 0x...`)
     - issue comment (if you prefer issue-centric)
   - Add webhook handler(s) needed (`issue_comment.created`, `pull_request_review_comment.created`, etc.).
   - Validate EVM address format and record it to PR store/DB.

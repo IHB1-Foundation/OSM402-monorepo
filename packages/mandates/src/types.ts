@@ -77,11 +77,11 @@ export const CART_TYPES = {
 } as const;
 
 /**
- * GitPay EIP-712 domain name
+ * OSM402 EIP-712 domain name
  */
-export const DOMAIN_NAME = 'GitPay';
+export const DOMAIN_NAME = 'OSM402';
 
 /**
- * GitPay EIP-712 domain version
+ * OSM402 EIP-712 domain version
  */
 export const DOMAIN_VERSION = '1';

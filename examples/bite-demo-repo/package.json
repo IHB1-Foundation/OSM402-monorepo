@@ -1,5 +1,5 @@
 {
-  "name": "gitpay-bite-demo-repo",
+  "name": "osm402-bite-demo-repo",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,4 +9,3 @@
     "node": ">=20"
   }
 }
-

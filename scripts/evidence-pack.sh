@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
 BASE_URL="${DEMO_BASE_URL:-http://localhost:3000}"
-ACTION_SECRET="${GITPAY_ACTION_SHARED_SECRET:-demo-action-secret}"
+ACTION_SECRET="${OSM402_ACTION_SHARED_SECRET:-${GITPAY_ACTION_SHARED_SECRET:-demo-action-secret}}"
 DEMO_REPO="${DEMO_REPO:-owner/repo}"
 ISSUE_PASS="${DEMO_ISSUE_PASS:-${DEMO_ISSUE:-1}}"
 ISSUE_HOLD="${DEMO_ISSUE_HOLD:-2}"
@@ -59,16 +59,16 @@ api_call POST "$BASE_URL/api/x402-test" "$OUT_DIR/x402-challenge.json" \
   -H "Content-Type: application/json" \
   -d '{}'
 api_call GET "$BASE_URL/api/fund/$DEMO_REPO/$ISSUE_PASS" "$OUT_DIR/fund-pass.json" \
-  -H "X-GitPay-Secret: $ACTION_SECRET"
+  -H "X-OSM402-Secret: $ACTION_SECRET"
 api_call GET "$BASE_URL/api/fund/$DEMO_REPO/$ISSUE_HOLD" "$OUT_DIR/fund-hold.json" \
-  -H "X-GitPay-Secret: $ACTION_SECRET"
+  -H "X-OSM402-Secret: $ACTION_SECRET"
 api_call POST "$BASE_URL/api/payout/execute" "$OUT_DIR/payout-pass.json" \
   -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: $ACTION_SECRET" \
+  -H "X-OSM402-Secret: $ACTION_SECRET" \
   -d "{\"repoKey\":\"$DEMO_REPO\",\"prNumber\":$PASS_PR_NO}"
 api_call POST "$BASE_URL/api/payout/execute" "$OUT_DIR/payout-hold.json" \
   -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: $ACTION_SECRET" \
+  -H "X-OSM402-Secret: $ACTION_SECRET" \
   -d "{\"repoKey\":\"$DEMO_REPO\",\"prNumber\":$HOLD_PR_NO}"
 
 AP2_STATUS="ok"

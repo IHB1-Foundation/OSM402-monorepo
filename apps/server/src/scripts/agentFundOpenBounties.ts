@@ -98,7 +98,7 @@ async function fundOne(params: {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-GitPay-Secret': secret,
+      'X-OSM402-Secret': secret,
     },
     body: JSON.stringify(fundBody),
   });
@@ -158,7 +158,7 @@ async function fundOne(params: {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-GitPay-Secret': secret,
+      'X-OSM402-Secret': secret,
       'X-Payment': paymentHeader,
     },
     body: JSON.stringify(fundBody),
@@ -175,8 +175,16 @@ async function fundOne(params: {
 async function main(): Promise<void> {
   const args = readArgs(process.argv.slice(2));
 
-  const baseUrl = args['base-url'] || process.env.GITPAY_BASE_URL || 'http://localhost:3000';
-  const secret = requireArg(args, 'secret', 'GITPAY_ACTION_SHARED_SECRET');
+  const baseUrl =
+    args['base-url'] ||
+    process.env.OSM402_BASE_URL ||
+    process.env.GITPAY_BASE_URL ||
+    'http://localhost:3000';
+  const secret =
+    args.secret ||
+    process.env.OSM402_ACTION_SHARED_SECRET ||
+    process.env.GITPAY_ACTION_SHARED_SECRET ||
+    (() => { throw new Error('Missing --secret (or env OSM402_ACTION_SHARED_SECRET / GITPAY_ACTION_SHARED_SECRET)'); })();
   const repoKey = requireArg(args, 'repo');
   const rpcUrl = args['rpc-url'] || process.env.RPC_URL || 'https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2';
   const payerKey = (requireArg(args, 'private-key', 'X402_PAYER_PRIVATE_KEY') as Hex);
@@ -219,4 +227,3 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));
   process.exitCode = 1;
 });
-

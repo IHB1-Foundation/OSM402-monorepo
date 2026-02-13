@@ -1,9 +1,9 @@
 {
-  "name": "gitpay",
+  "name": "osm402",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "GitPay.ai - Fund with x402. Merge with Proof. Pay by Mandate.",
+  "description": "OSM402 - Fund with x402. Merge with Proof. Pay by Mandate.",
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",

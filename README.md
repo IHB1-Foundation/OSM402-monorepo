@@ -1,14 +1,14 @@
-# GitPay.ai
+# OSM402
 
 **Fund with x402. Merge with Proof. Pay by Mandate.**
 
-GitPay.ai is a GitHub-native bounty system that enables instant, auditable payouts on merge without trusting an AI model to decide who gets paid.
+OSM402 is a GitHub-native bounty system that enables instant, auditable payouts on merge without trusting an AI model to decide who gets paid.
 
 ## How It Works
 
 1. **Fund** — Label an issue `bounty:$10`. The CI agent pays via x402 into an onchain escrow.
 2. **Work** — A contributor submits a PR referencing the issue. AI reviews the PR (explanation only).
-3. **Merge** — Maintainer merges. GitPay verifies checks, computes payout deterministically, and releases funds.
+3. **Merge** — Maintainer merges. OSM402 verifies checks, computes payout deterministically, and releases funds.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ GitPay.ai is a GitHub-native bounty system that enables instant, auditable payou
 
 ```bash
 # Clone and install
-git clone <repo-url> && cd gitpay
+git clone <repo-url> && cd osm402
 pnpm install
 
 # Copy environment template

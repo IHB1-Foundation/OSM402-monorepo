@@ -42,8 +42,16 @@ function buildPaymentHeader(payload: Record<string, unknown>): string {
 async function main(): Promise<void> {
   const args = readArgs(process.argv.slice(2));
 
-  const baseUrl = args['base-url'] || process.env.GITPAY_BASE_URL || 'http://localhost:3000';
-  const secret = requireArg(args, 'secret');
+  const baseUrl =
+    args['base-url'] ||
+    process.env.OSM402_BASE_URL ||
+    process.env.GITPAY_BASE_URL ||
+    'http://localhost:3000';
+  const secret =
+    args.secret ||
+    process.env.OSM402_ACTION_SHARED_SECRET ||
+    process.env.GITPAY_ACTION_SHARED_SECRET ||
+    requireArg(args, 'secret');
   const rpcUrl =
     args['rpc-url'] ||
     process.env.RPC_URL ||
@@ -62,7 +70,7 @@ async function main(): Promise<void> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-GitPay-Secret': secret,
+      'X-OSM402-Secret': secret,
     },
     body: JSON.stringify(fundBody),
   });
@@ -136,7 +144,7 @@ async function main(): Promise<void> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-GitPay-Secret': secret,
+      'X-OSM402-Secret': secret,
       'X-Payment': paymentHeader,
     },
     body: JSON.stringify(fundBody),

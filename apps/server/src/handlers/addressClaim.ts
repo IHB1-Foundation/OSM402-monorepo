@@ -1,8 +1,8 @@
 /**
  * Handler for contributor payout address claims.
  * Supports:
- *   - PR/issue comment: `/gitpay address 0x...`
- *   - PR body token: `gitpay:address 0x...`
+ *   - PR/issue comment: `/osm402 address 0x...` (legacy `/gitpay address` also accepted)
+ *   - PR body token: `osm402:address 0x...` (legacy `gitpay:address` also accepted)
  */
 
 import { getPr, updatePr, getAllPrs } from '../store/prs.js';
@@ -12,10 +12,14 @@ const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 /**
  * Extract payout address from text.
- * Matches:  /gitpay address 0x...  OR  gitpay:address 0x...
+ * Matches:
+ *   - /osm402 address 0x...
+ *   - osm402:address 0x...
+ *   - legacy /gitpay address 0x...
+ *   - legacy gitpay:address 0x...
  */
 export function extractAddress(text: string): string | null {
-  const match = text.match(/(?:\/gitpay\s+address|gitpay:address)\s+(0x[0-9a-fA-F]{40})\b/);
+  const match = text.match(/(?:\/(?:osm402|gitpay)\s+address|(?:osm402|gitpay):address)\s+(0x[0-9a-fA-F]{40})\b/i);
   return match ? match[1]! : null;
 }
 
@@ -43,7 +47,7 @@ interface IssueCommentPayload {
 }
 
 /**
- * Handle issue_comment.created to capture `/gitpay address 0x...` commands.
+ * Handle issue_comment.created to capture `/osm402 address 0x...` commands.
  */
 export async function handleAddressClaim(payload: IssueCommentPayload): Promise<{
   handled: boolean;
@@ -78,7 +82,7 @@ export async function handleAddressClaim(payload: IssueCommentPayload): Promise<
       console.log(`[address] Stored ${address} for PR ${repoKey}#PR${issueOrPrNumber} (from PR comment)`);
 
       await postIssueComment(repoKey, issueOrPrNumber,
-        `**GitPay** Payout address registered: \`${address}\``
+        `**OSM402** Payout address registered: \`${address}\``
       );
       return { handled: true, address, prNumber: issueOrPrNumber };
     }
@@ -88,7 +92,7 @@ export async function handleAddressClaim(payload: IssueCommentPayload): Promise<
       updatePr(repoKey, issueOrPrNumber, { contributorAddress: address });
       console.log(`[address] Stored ${address} for PR ${repoKey}#PR${issueOrPrNumber} (from ${commenter}, PR author: ${prRecord.contributorGithub})`);
       await postIssueComment(repoKey, issueOrPrNumber,
-        `**GitPay** Payout address registered: \`${address}\` (claimed by @${commenter})`
+        `**OSM402** Payout address registered: \`${address}\` (claimed by @${commenter})`
       );
       return { handled: true, address, prNumber: issueOrPrNumber };
     }
@@ -105,7 +109,7 @@ export async function handleAddressClaim(payload: IssueCommentPayload): Promise<
 
     if (linkedPrs.length > 0) {
       await postIssueComment(repoKey, issueOrPrNumber,
-        `**GitPay** Payout address registered: \`${address}\` (linked to ${linkedPrs.length} PR(s))`
+        `**OSM402** Payout address registered: \`${address}\` (linked to ${linkedPrs.length} PR(s))`
       );
       return { handled: true, address };
     }

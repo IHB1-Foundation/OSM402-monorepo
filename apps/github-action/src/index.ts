@@ -57,7 +57,7 @@ async function run(): Promise<void> {
     const { owner, repo } = github.context.repo;
     const repoKey = `${owner}/${repo}`;
 
-    core.info(`GitPay Action starting...`);
+    core.info(`OSM402 Action starting...`);
     core.info(`API URL: ${apiUrl}`);
     core.info(`Repository: ${repoKey}`);
     core.info(`Event: ${github.context.eventName}`);
@@ -65,7 +65,7 @@ async function run(): Promise<void> {
     // Step 1: Health check
     core.info('--- Step 1: Health check ---');
     const healthRes = await fetch(`${apiUrl}/api/health`, {
-      headers: { 'X-GitPay-Secret': actionSecret },
+      headers: { 'X-OSM402-Secret': actionSecret },
     });
     if (!healthRes.ok) {
       throw new Error(`Health check failed: ${healthRes.status}`);
@@ -106,7 +106,7 @@ async function run(): Promise<void> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-GitPay-Secret': actionSecret,
+        'X-OSM402-Secret': actionSecret,
       },
       body: JSON.stringify(fundBody),
     });
@@ -143,7 +143,7 @@ async function run(): Promise<void> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-GitPay-Secret': actionSecret,
+        'X-OSM402-Secret': actionSecret,
         'X-Payment': paymentHeader,
       },
       body: JSON.stringify(fundBody),

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# GitPay.ai — Single-Run Demo Script
+# OSM402 — Single-Run Demo Script
 # =============================================================================
 # Runs the full happy-path demo in one shot:
 #   Health Check → Fund (402 → Pay) → PR Open → Merge → Payout → Idempotency
@@ -12,7 +12,7 @@
 #
 # Prerequisites:
 #   - Server running (pnpm dev --filter server)
-#   - .env configured with GITHUB_WEBHOOK_SECRET and GITPAY_ACTION_SHARED_SECRET
+#   - .env configured with GITHUB_WEBHOOK_SECRET and OSM402_ACTION_SHARED_SECRET
 #   - curl, jq, openssl installed
 # =============================================================================
 
@@ -23,11 +23,11 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 BASE_URL="${DEMO_BASE_URL:-http://localhost:3000}"
 WEBHOOK_SECRET="${GITHUB_WEBHOOK_SECRET:-demo-secret}"
-ACTION_SECRET="${GITPAY_ACTION_SHARED_SECRET:-demo-action-secret}"
+ACTION_SECRET="${OSM402_ACTION_SHARED_SECRET:-${GITPAY_ACTION_SHARED_SECRET:-demo-action-secret}}"
 REPO_KEY="${DEMO_REPO:-demo/repo}"
 ISSUE_NUM="${DEMO_ISSUE:-1}"
 PR_NUM="${DEMO_PR:-42}"
-BOUNTY_USD="${DEMO_BOUNTY:-10}"
+BOUNTY_USD="${DEMO_BOUNTY:-0.1}"
 CONTRIBUTOR="${DEMO_CONTRIBUTOR:-contributor}"
 CONTRIBUTOR_ADDR="${DEMO_ADDRESS:-0x1234567890abcdef1234567890abcdef12345678}"
 NO_COLOR="${NO_COLOR:-}"
@@ -92,7 +92,7 @@ api_call() {
 # ---------------------------------------------------------------------------
 # Pre-flight
 # ---------------------------------------------------------------------------
-echo -e "${BOLD}GitPay.ai — Happy-Path Demo${RESET}"
+echo -e "${BOLD}OSM402 — Happy-Path Demo${RESET}"
 echo -e "${DIM}Server: $BASE_URL | Repo: $REPO_KEY | Issue: #$ISSUE_NUM | PR: #$PR_NUM${RESET}"
 echo ""
 
@@ -123,7 +123,7 @@ FUND_BODY="{\"repoKey\":\"$REPO_KEY\",\"issueNumber\":$ISSUE_NUM,\"bountyCapUsd\
 RESP=$(curl -s -w "\n%{http_code}" \
   -X POST "$BASE_URL/api/fund" \
   -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: $ACTION_SECRET" \
+  -H "X-OSM402-Secret: $ACTION_SECRET" \
   -d "$FUND_BODY")
 HTTP_CODE=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
@@ -140,13 +140,13 @@ fi
 # Step 2b: Fund — pay via x402 header
 # ---------------------------------------------------------------------------
 step "Fund Bounty — Retry with x402 Payment"
-PAYMENT_JSON="{\"paymentHash\":\"demo-$(date +%s)\",\"amount\":\"10000000\",\"chainId\":84532,\"payer\":\"0x0000000000000000000000000000000000000001\"}"
+PAYMENT_JSON="{\"paymentHash\":\"demo-$(date +%s)\",\"amount\":\"100000\",\"chainId\":103698795,\"payer\":\"0x0000000000000000000000000000000000000001\"}"
 PAYMENT=$(echo -n "$PAYMENT_JSON" | base64)
 
 RESP=$(curl -s -w "\n%{http_code}" \
   -X POST "$BASE_URL/api/fund" \
   -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: $ACTION_SECRET" \
+  -H "X-OSM402-Secret: $ACTION_SECRET" \
   -H "X-Payment: $PAYMENT" \
   -d "$FUND_BODY")
 HTTP_CODE=$(echo "$RESP" | tail -1)
@@ -164,7 +164,7 @@ fi
 # ---------------------------------------------------------------------------
 step "Verify Funding Status"
 RESP=$(curl -s "$BASE_URL/api/fund/$REPO_KEY/$ISSUE_NUM" \
-  -H "X-GitPay-Secret: $ACTION_SECRET")
+  -H "X-OSM402-Secret: $ACTION_SECRET")
 echo "$RESP" | jq . 2>/dev/null || echo "$RESP"
 STATUS=$(echo "$RESP" | jq -r '.issue.status // .status // "unknown"' 2>/dev/null)
 if [[ "$STATUS" == "FUNDED" ]]; then
@@ -177,7 +177,7 @@ fi
 # Step 3: PR Opened + Address Claim
 # ---------------------------------------------------------------------------
 step "Simulate PR Open + Address Claim"
-PR_OPEN_BODY="{\"action\":\"opened\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\ngitpay:address $CONTRIBUTOR_ADDR\",\"merged\":false,\"merge_commit_sha\":null,\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"head$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
+PR_OPEN_BODY="{\"action\":\"opened\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\nosm402:address $CONTRIBUTOR_ADDR\",\"merged\":false,\"merge_commit_sha\":null,\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"head$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
 SIG=$(hmac_sig "$PR_OPEN_BODY")
 DELIVERY="demo-pr-open-$(date +%s)"
 
@@ -203,7 +203,7 @@ fi
 # ---------------------------------------------------------------------------
 step "Simulate Merge → Trigger Payout Pipeline"
 MERGE_SHA="abc123def456789012345678901234567890abcd"
-MERGE_BODY="{\"action\":\"closed\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\ngitpay:address $CONTRIBUTOR_ADDR\",\"merged\":true,\"merge_commit_sha\":\"$MERGE_SHA\",\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"headmerge$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
+MERGE_BODY="{\"action\":\"closed\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\nosm402:address $CONTRIBUTOR_ADDR\",\"merged\":true,\"merge_commit_sha\":\"$MERGE_SHA\",\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"headmerge$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
 SIG=$(hmac_sig "$MERGE_BODY")
 MERGE_DELIVERY="demo-merge-$(date +%s)"
 
@@ -231,7 +231,7 @@ step "Execute Payout"
 RESP=$(curl -s -w "\n%{http_code}" \
   -X POST "$BASE_URL/api/payout/execute" \
   -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: $ACTION_SECRET" \
+  -H "X-OSM402-Secret: $ACTION_SECRET" \
   -d "{\"repoKey\":\"$REPO_KEY\",\"prNumber\":$PR_NUM}")
 HTTP_CODE=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
@@ -286,6 +286,6 @@ echo -e "  ${BOLD}Judging Criteria:${RESET}"
 echo -e "    ${CYAN}AI Readiness${RESET}       — Gemini structured review + riskFlags → HOLD"
 echo -e "    ${CYAN}Commerce Realism${RESET}   — x402 HTTP 402 → payment → onchain escrow"
 echo -e "    ${CYAN}Ship-ability${RESET}       — Full pipeline: fund → merge → payout"
-echo -e "    ${CYAN}Partner (SKALE)${RESET}    — Gasless deployment, chain adapter, MockSKLA"
+echo -e "    ${CYAN}Partner (SKALE)${RESET}    — BITE V2 Sandbox 2 + existing USDC"
 echo -e "    ${CYAN}Composability${RESET}      — EIP-712 mandates, deterministic escrow (CREATE2)"
 echo ""

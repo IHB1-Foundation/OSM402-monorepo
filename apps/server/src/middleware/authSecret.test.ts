@@ -29,14 +29,23 @@ function mockReqRes(headers: Record<string, string> = {}) {
 
 describe('requireSecret middleware', () => {
   beforeEach(() => {
-    process.env.GITPAY_ACTION_SHARED_SECRET = TEST_SECRET;
+    process.env.OSM402_ACTION_SHARED_SECRET = TEST_SECRET;
   });
 
   afterEach(() => {
+    delete process.env.OSM402_ACTION_SHARED_SECRET;
     delete process.env.GITPAY_ACTION_SHARED_SECRET;
   });
 
   it('calls next() when secret matches', () => {
+    const { req, res } = mockReqRes({ 'x-osm402-secret': TEST_SECRET });
+    let called = false;
+    const next: NextFunction = () => { called = true; };
+    requireSecret(req, res, next);
+    expect(called).toBe(true);
+  });
+
+  it('accepts legacy x-gitpay-secret header for backward compatibility', () => {
     const { req, res } = mockReqRes({ 'x-gitpay-secret': TEST_SECRET });
     let called = false;
     const next: NextFunction = () => { called = true; };
@@ -52,22 +61,23 @@ describe('requireSecret middleware', () => {
   });
 
   it('returns 403 when secret is wrong', () => {
-    const { req, res } = mockReqRes({ 'x-gitpay-secret': 'wrong-secret' });
+    const { req, res } = mockReqRes({ 'x-osm402-secret': 'wrong-secret' });
     const next: NextFunction = () => {};
     requireSecret(req, res, next);
     expect((res as unknown as { statusCode: number }).statusCode).toBe(403);
   });
 
   it('returns 403 when server secret is not configured', () => {
+    delete process.env.OSM402_ACTION_SHARED_SECRET;
     delete process.env.GITPAY_ACTION_SHARED_SECRET;
-    const { req, res } = mockReqRes({ 'x-gitpay-secret': 'any-value' });
+    const { req, res } = mockReqRes({ 'x-osm402-secret': 'any-value' });
     const next: NextFunction = () => {};
     requireSecret(req, res, next);
     expect((res as unknown as { statusCode: number }).statusCode).toBe(403);
   });
 
   it('rejects secrets with different lengths safely', () => {
-    const { req, res } = mockReqRes({ 'x-gitpay-secret': 'short' });
+    const { req, res } = mockReqRes({ 'x-osm402-secret': 'short' });
     const next: NextFunction = () => {};
     requireSecret(req, res, next);
     expect((res as unknown as { statusCode: number }).statusCode).toBe(403);
