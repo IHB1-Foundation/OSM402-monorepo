@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Router as ExpressRouter } from 'express';
 import { z } from 'zod';
-import { keccak256, toHex, type Address, parseUnits } from 'viem';
+import { keccak256, toHex, type Address, parseUnits, formatUnits } from 'viem';
 import { createIntent, hashIntent } from '@gitpay/mandates';
 import { requirePayment, type X402Request } from '../middleware/x402.js';
 import {
@@ -17,6 +17,8 @@ import {
   verifyEscrowBalance,
 } from '../services/escrow.js';
 import { activeChain } from '../config/chains.js';
+import { fundedComment } from '../services/comments.js';
+import { postIssueComment } from '../services/github.js';
 
 const router: ExpressRouter = Router();
 
@@ -249,6 +251,21 @@ router.post(
       intentHash,
       fundingTxHash
     );
+
+    // Best-effort: post a "Funded" comment back to GitHub issue
+    try {
+      const amountUsd = parseFloat(formatUnits(BigInt(issue.bountyCap), activeChain.assetDecimals));
+      const comment = fundedComment({
+        amountUsd,
+        escrowAddress,
+        intentHash,
+        depositTxHash: fundingTxHash,
+        chainId: issue.chainId,
+      });
+      await postIssueComment(issue.repoKey, issue.issueNumber, comment);
+    } catch {
+      // Ignore comment failures for demo robustness
+    }
 
     res.json({
       success: true,
