@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import {Script, console} from "forge-std/Script.sol";
 import {IssueEscrowFactory} from "../src/IssueEscrowFactory.sol";
-import {MockUSDC} from "../src/MockUSDC.sol";
+import {MockSKLA} from "../src/MockSKLA.sol";
 
-/// @title DeploySKALE - Deploy GitPay contracts + MockUSDC to SKALE testnet
+/// @title DeploySKALE - Deploy GitPay contracts + MockSKLA to SKALE testnet
 /// @notice SKALE is gasless — deployer needs no native token balance.
 contract DeploySKALE is Script {
     function run() public {
@@ -20,13 +20,13 @@ contract DeploySKALE is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy MockUSDC (demo stablecoin)
-        MockUSDC usdc = new MockUSDC();
-        console.log("MockUSDC deployed at:", address(usdc));
+        // 1. Deploy MockSKLA (demo asset)
+        MockSKLA skla = new MockSKLA();
+        console.log("MockSKLA deployed at:", address(skla));
 
-        // 2. Mint initial supply to deployer (1,000,000 USDC)
-        usdc.mint(deployer, 1_000_000 * 1e6);
-        console.log("Minted 1,000,000 USDC to deployer");
+        // 2. Mint initial supply to deployer (1,000,000 SKLA)
+        skla.mint(deployer, 1_000_000 * 1e18);
+        console.log("Minted 1,000,000 SKLA to deployer");
 
         // 3. Deploy IssueEscrowFactory
         IssueEscrowFactory factory = new IssueEscrowFactory(
@@ -41,7 +41,7 @@ contract DeploySKALE is Script {
         console.log("");
         console.log("=== SKALE DEPLOYMENT SUMMARY ===");
         console.log("Chain ID:", block.chainid);
-        console.log("MockUSDC:", address(usdc));
+        console.log("MockSKLA:", address(skla));
         console.log("Factory:", address(factory));
         console.log("Maintainer:", maintainerSigner);
         console.log("Agent:", agentSigner);

@@ -8,6 +8,8 @@
     "deploy:local": "forge script script/Deploy.s.sol:DeployLocal --fork-url http://localhost:8545 --broadcast",
     "deploy:base-sepolia": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast --verify",
     "deploy:base-sepolia:dry": "forge script script/Deploy.s.sol:Deploy --rpc-url $BASE_SEPOLIA_RPC_URL",
+    "deploy:skale-base-sepolia": "forge script script/DeploySKALE.s.sol:DeploySKALE --rpc-url $SKALE_BASE_SEPOLIA_RPC_URL --broadcast",
+    "deploy:skale-base-sepolia:dry": "forge script script/DeploySKALE.s.sol:DeploySKALE --rpc-url $SKALE_BASE_SEPOLIA_RPC_URL",
     "clean": "forge clean"
   }
 }
