@@ -71,6 +71,13 @@ Edit `.env` with these values:
 GITHUB_WEBHOOK_SECRET=demo-secret
 GITPAY_ACTION_SHARED_SECRET=demo-action-secret
 
+# GitHub API auth (required for comments + agent issue scanning)
+# Option A: GitHub App (recommended)
+GITHUB_APP_ID=
+GITHUB_PRIVATE_KEY_PEM=
+# Option B: Personal Access Token
+GITHUB_TOKEN=
+
 # Real chain demo
 CHAIN_NAME=bite-v2-sandbox-2
 X402_MOCK_MODE=false
