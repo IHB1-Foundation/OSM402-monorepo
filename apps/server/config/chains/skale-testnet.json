@@ -1,12 +1,12 @@
 {
-  "network": "skale-testnet",
-  "chainName": "Europa Hub Testnet",
-  "chainId": 1444673419,
-  "rpcUrl": "https://testnet.skalenodes.com/v1/juicy-low-small-testnet",
-  "explorerUrl": "https://juicy-low-small-testnet.explorer.testnet.skalenodes.com",
+  "network": "skale-base-sepolia",
+  "chainName": "SKALE Base Sepolia",
+  "chainId": 324705682,
+  "rpcUrl": "https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha",
+  "explorerUrl": "https://base-sepolia-testnet-explorer.skalenodes.com",
   "contracts": {
     "issueEscrowFactory": "",
-    "mockUsdc": ""
+    "skla": ""
   },
   "signers": {
     "maintainer": "",
@@ -14,5 +14,5 @@
   },
   "deployed": false,
   "deployedAt": null,
-  "notes": "Deploy with: forge script script/DeploySKALE.s.sol --rpc-url $SKALE_RPC_URL --broadcast. SKALE is gasless — no native token needed for tx fees."
+  "notes": "Deploy with: forge script script/DeploySKALE.s.sol --rpc-url $SKALE_BASE_SEPOLIA_RPC_URL --broadcast. SKALE is gasless — no native token needed for tx fees."
 }

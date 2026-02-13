@@ -42,6 +42,35 @@ const CHAINS: Record<string, ChainConfig> = {
     factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
     isGasless: false,
   },
+  // SKALE "Base Sepolia" testnet (x402 facilitator-supported: skale-base-spolia)
+  // Docs: https://docs.skale.space/chain-info/schain/base-sepolia
+  'skale-base-sepolia': {
+    name: 'skale-base-sepolia',
+    chainId: 324705682,
+    rpcUrl:
+      process.env.RPC_URL ||
+      'https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha',
+    explorerUrl: 'https://base-sepolia-testnet-explorer.skalenodes.com',
+    asset: envAssetAddress('0x0000000000000000000000000000000000000000' as Address),
+    assetSymbol: process.env.ASSET_SYMBOL || 'SKLA',
+    assetDecimals: envInt('ASSET_DECIMALS', 18),
+    factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+    isGasless: true,
+  },
+  // Alias used by some x402 facilitator implementations
+  'skale-base-spolia': {
+    name: 'skale-base-spolia',
+    chainId: 324705682,
+    rpcUrl:
+      process.env.RPC_URL ||
+      'https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha',
+    explorerUrl: 'https://base-sepolia-testnet-explorer.skalenodes.com',
+    asset: envAssetAddress('0x0000000000000000000000000000000000000000' as Address),
+    assetSymbol: process.env.ASSET_SYMBOL || 'SKLA',
+    assetDecimals: envInt('ASSET_DECIMALS', 18),
+    factoryAddress: (process.env.ESCROW_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as Address,
+    isGasless: true,
+  },
   'skale': {
     name: 'skale',
     chainId: Number(process.env.CHAIN_ID || 0),
