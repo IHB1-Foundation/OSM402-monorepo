@@ -132,7 +132,7 @@ Explorer proof:
 
 - `https://base-sepolia-testnet-explorer.skalenodes.com:10032/address/<FACTORY>`
 
-### 6. Optional: Real GitHub Integration
+### 6. Real GitHub Integration (recommended for judging)
 
 For a live GitHub demo (webhook from a real repo):
 
@@ -166,21 +166,18 @@ curl -s http://localhost:3000/api/health | jq
 
 Expected: `{"status":"ok","timestamp":"...","version":"0.1.0"}`
 
-### Step 2: Fund a Bounty via x402 (Real Mode) (60–120s)
+### Step 2: Create a bounty issue on GitHub (30s)
 
-#### 2a. Call without payment → 402 challenge
+1) Create an issue using: `docs/demo-assets/ISSUE_EXAMPLE.md`  
+2) Add label: `bounty:$10`
 
-```bash
-curl -s -w "\nHTTP %{http_code}\n" \
-  -X POST http://localhost:3000/api/fund \
-  -H "Content-Type: application/json" \
-  -H "X-GitPay-Secret: demo-action-secret" \
-  -d '{"repoKey":"demo/repo","issueNumber":1,"bountyCapUsd":10}'
-```
+Expected:
 
-Expected: `HTTP 402` with payment requirements JSON.
+- GitPay posts **“Bounty Detected”** comment with the escrow address link.
 
-#### 2b. Buyer agent funds it (recommended)
+### Step 3: Buyer agent funds it via x402 (60–120s)
+
+#### 3a. Fund one issue (simple)
 
 ```bash
 pnpm --filter server tsx src/scripts/x402Fund.ts \
@@ -193,7 +190,7 @@ pnpm --filter server tsx src/scripts/x402Fund.ts \
   --private-key "<PAYER_PRIVATE_KEY>"
 ```
 
-#### 2c. Or: fund all open bounty issues (best “agentic” look)
+#### 3b. Fund all open bounty issues (best “agentic” look)
 
 ```bash
 pnpm --filter server tsx src/scripts/agentFundOpenBounties.ts \
@@ -203,7 +200,17 @@ pnpm --filter server tsx src/scripts/agentFundOpenBounties.ts \
   --rpc-url "https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2"
 ```
 
-### Step 3: Open PR (Real GitHub) + Address Claim (60s)
+#### (Optional) Show the raw x402 402 payload (HTTP layer)
+
+```bash
+curl -s -w "\nHTTP %{http_code}\n" \
+  -X POST http://localhost:3000/api/fund \
+  -H "Content-Type: application/json" \
+  -H "X-GitPay-Secret: demo-action-secret" \
+  -d '{"repoKey":"demo/repo","issueNumber":1,"bountyCapUsd":10}' | jq
+```
+
+### Step 4: Open PR (Real GitHub) + Address Claim (60s)
 
 Create a PR in your demo target repo using:
 
@@ -217,7 +224,7 @@ Expected:
 - GitPay posts an AI review comment on the PR (if Gemini is configured).
 - GitPay captures the payout address from the PR body.
 
-### Step 4: Merge PR → Auto Payout (60–120s)
+### Step 5: Merge PR → Auto Payout (60–120s)
 
 Merge the PR on GitHub.
 
@@ -227,7 +234,7 @@ Expected:
 - GitPay constructs mandates and sends `escrow.release(...)` onchain.
 - The PR receives a **“Paid”** comment including the transaction link.
 
-### Step 5: Verify Onchain (30s)
+### Step 6: Verify Onchain (30s)
 
 Open the tx link from the **Paid** comment and verify:
 
@@ -235,7 +242,7 @@ Open the tx link from the **Paid** comment and verify:
 - recipient: contributor address
 - event: `Released` emitted by the escrow contract
 
-### Step 6: Idempotency (No double-pay)
+### Step 7: Idempotency (No double-pay)
 
 GitHub may redeliver webhooks; the server deduplicates by `X-GitHub-Delivery`.
 If you resend the same delivery, it is ignored safely.
@@ -247,13 +254,12 @@ If you resend the same delivery, it is ignored safely.
 | Step | Action | Expected Result | Duration |
 |------|--------|-----------------|----------|
 | 1 | Health check | Server OK | 10s |
-| 2a | Fund (no payment) | 402 with requirements | 15s |
-| 2b | Buyer agent funds (x402) | Escrow funded, intentHash | 30–90s |
-| 2c | Verify status | Issue = FUNDED | 10s |
-| 3 | PR open + address claim | PR recorded, address captured | 30–60s |
-| 4 | Merge PR | Auto payout executed | 30–90s |
-| 5 | Explorer proof | TX + Released event | 15–30s |
-| 6 | Idempotency | No double pay | — |
+| 2 | Create issue + label | “Bounty Detected” comment | 30s |
+| 3 | Buyer agent funds (x402) | Issue = FUNDED | 60–120s |
+| 4 | PR open + address claim | PR recorded, address captured | 30–60s |
+| 5 | Merge PR | Auto payout executed | 30–90s |
+| 6 | Explorer proof | TX + Released event | 15–30s |
+| 7 | Idempotency | No double pay | — |
 
 **Total: ~2 minutes** (automated script) / ~4 minutes (manual with narration)
 
