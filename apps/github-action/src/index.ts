@@ -149,6 +149,22 @@ async function run(): Promise<void> {
       body: JSON.stringify(fundBody),
     });
 
+    if (paidRes.status === 402) {
+      const stillRequired = (await paidRes.json()) as X402Response & Record<string, unknown>;
+      core.warning('Server still requires a valid x402 payment proof. This action only supports mock-mode headers.');
+      core.info(`Requirement: ${JSON.stringify(stillRequired.x402?.requirement ?? {}, null, 2)}`);
+      core.setOutput(
+        'result',
+        JSON.stringify({
+          skipped: true,
+          reason: 'real_x402_required',
+          requirement: stillRequired.x402?.requirement,
+          serverResponse: stillRequired,
+        })
+      );
+      return;
+    }
+
     const paidData = (await paidRes.json()) as Record<string, unknown>;
 
     if (!paidRes.ok) {
