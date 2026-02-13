@@ -6,8 +6,8 @@
   "explorerUrl": "https://base-sepolia-testnet-explorer.skalenodes.com:10032",
   "contracts": {
     "issueEscrowFactory": "",
-    "x402Token": "",
-    "notes": "Deploy MockSKLA (or any mintable ERC20) and set ASSET_ADDRESS to that token for x402 funding proofs."
+    "usdc": "0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8",
+    "notes": "Default x402 asset on BITE V2 Sandbox 2 is USDC (decimals 6). You can override by deploying MockSKLA (or any mintable ERC20) and setting ASSET_ADDRESS / ASSET_DECIMALS accordingly."
   },
   "signers": {
     "maintainer": "",
