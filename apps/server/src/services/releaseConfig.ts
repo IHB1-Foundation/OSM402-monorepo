@@ -10,8 +10,8 @@ import {
   hashIntent,
   type Cart,
   type Intent,
-} from '@gitpay/mandates';
-import { computeMergeShaHash } from '@gitpay/policy';
+} from '@osm402/mandates';
+import { computeMergeShaHash } from '@osm402/policy';
 import { activeChain } from '../config/chains.js';
 import type { IssueRecord } from '../store/issues.js';
 import type { PayoutRecord } from '../store/payouts.js';
@@ -24,14 +24,14 @@ function isMockEscrow(): boolean {
 }
 
 function getMaintainerAccount() {
-  const pk = process.env.GITPAY_MAINTAINER_PRIVATE_KEY;
-  if (!pk) throw new Error('GITPAY_MAINTAINER_PRIVATE_KEY not set');
+  const pk = process.env.OSM402_MAINTAINER_PRIVATE_KEY;
+  if (!pk) throw new Error('OSM402_MAINTAINER_PRIVATE_KEY not set');
   return privateKeyToAccount(pk as Hex);
 }
 
 function getAgentAccount() {
-  const pk = process.env.GITPAY_AGENT_PRIVATE_KEY;
-  if (!pk) throw new Error('GITPAY_AGENT_PRIVATE_KEY not set');
+  const pk = process.env.OSM402_AGENT_PRIVATE_KEY;
+  if (!pk) throw new Error('OSM402_AGENT_PRIVATE_KEY not set');
   return privateKeyToAccount(pk as Hex);
 }
 

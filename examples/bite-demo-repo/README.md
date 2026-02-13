@@ -9,7 +9,7 @@
 
 ## 2) 정책 파일
 
-루트에 `.gitpay.yml`이 포함되어 있습니다.
+루트에 `.osm402.yml`이 포함되어 있습니다.
 
 - 기본 payout: `0.1`
 - HOLD 조건: `.github/workflows/**`, lockfile 변경 시 HOLD

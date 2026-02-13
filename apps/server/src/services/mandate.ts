@@ -3,8 +3,8 @@
  * Builds and hashes Cart mandates for merge-time payout authorization.
  */
 
-import { createCart, hashCart, type Cart } from '@gitpay/mandates';
-import { computeMergeShaHash } from '@gitpay/policy';
+import { createCart, hashCart, type Cart } from '@osm402/mandates';
+import { computeMergeShaHash } from '@osm402/policy';
 import type { Address, Hex } from 'viem';
 import { activeChain } from '../config/chains.js';
 

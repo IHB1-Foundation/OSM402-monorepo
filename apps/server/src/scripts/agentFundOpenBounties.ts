@@ -178,13 +178,12 @@ async function main(): Promise<void> {
   const baseUrl =
     args['base-url'] ||
     process.env.OSM402_BASE_URL ||
-    process.env.GITPAY_BASE_URL ||
+    process.env.OSM402_API_URL ||
     'http://localhost:3000';
   const secret =
     args.secret ||
     process.env.OSM402_ACTION_SHARED_SECRET ||
-    process.env.GITPAY_ACTION_SHARED_SECRET ||
-    (() => { throw new Error('Missing --secret (or env OSM402_ACTION_SHARED_SECRET / GITPAY_ACTION_SHARED_SECRET)'); })();
+    (() => { throw new Error('Missing --secret (or env OSM402_ACTION_SHARED_SECRET)'); })();
   const repoKey = requireArg(args, 'repo');
   const rpcUrl = args['rpc-url'] || process.env.RPC_URL || 'https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2';
   const payerKey = (requireArg(args, 'private-key', 'X402_PAYER_PRIVATE_KEY') as Hex);

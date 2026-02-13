@@ -23,7 +23,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 BASE_URL="${DEMO_BASE_URL:-http://localhost:3000}"
 WEBHOOK_SECRET="${GITHUB_WEBHOOK_SECRET:-demo-secret}"
-ACTION_SECRET="${OSM402_ACTION_SHARED_SECRET:-${GITPAY_ACTION_SHARED_SECRET:-demo-action-secret}}"
+ACTION_SECRET="${OSM402_ACTION_SHARED_SECRET:-demo-action-secret}"
 REPO_KEY="${DEMO_REPO:-demo/repo}"
 ISSUE_NUM="${DEMO_ISSUE:-1}"
 PR_NUM="${DEMO_PR:-42}"

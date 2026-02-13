@@ -45,12 +45,11 @@ async function main(): Promise<void> {
   const baseUrl =
     args['base-url'] ||
     process.env.OSM402_BASE_URL ||
-    process.env.GITPAY_BASE_URL ||
+    process.env.OSM402_API_URL ||
     'http://localhost:3000';
   const secret =
     args.secret ||
     process.env.OSM402_ACTION_SHARED_SECRET ||
-    process.env.GITPAY_ACTION_SHARED_SECRET ||
     requireArg(args, 'secret');
   const rpcUrl =
     args['rpc-url'] ||

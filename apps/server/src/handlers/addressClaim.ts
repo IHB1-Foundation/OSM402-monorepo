@@ -1,8 +1,8 @@
 /**
  * Handler for contributor payout address claims.
  * Supports:
- *   - PR/issue comment: `/osm402 address 0x...` (legacy `/gitpay address` also accepted)
- *   - PR body token: `osm402:address 0x...` (legacy `gitpay:address` also accepted)
+ *   - PR/issue comment: `/osm402 address 0x...`
+ *   - PR body token: `osm402:address 0x...`
  */
 
 import { getPr, updatePr, getAllPrs } from '../store/prs.js';
@@ -15,11 +15,9 @@ const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
  * Matches:
  *   - /osm402 address 0x...
  *   - osm402:address 0x...
- *   - legacy /gitpay address 0x...
- *   - legacy gitpay:address 0x...
  */
 export function extractAddress(text: string): string | null {
-  const match = text.match(/(?:\/(?:osm402|gitpay)\s+address|(?:osm402|gitpay):address)\s+(0x[0-9a-fA-F]{40})\b/i);
+  const match = text.match(/(?:\/osm402\s+address|osm402:address)\s+(0x[0-9a-fA-F]{40})\b/i);
   return match ? match[1]! : null;
 }
 

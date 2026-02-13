@@ -62,7 +62,7 @@ contract IssueEscrowFactory {
     /// @notice Create a new escrow for an issue
     /// @param repoKeyHash Hash of the repository key (owner/repo)
     /// @param issueNumber The issue number
-    /// @param policyHash Hash of the .gitpay.yml policy
+    /// @param policyHash Hash of the .osm402.yml policy
     /// @param asset ERC20 token address
     /// @param cap Maximum payout cap
     /// @param expiry Expiry timestamp
@@ -90,7 +90,7 @@ contract IssueEscrowFactory {
     /// @notice Create a new escrow with custom signers
     /// @param repoKeyHash Hash of the repository key (owner/repo)
     /// @param issueNumber The issue number
-    /// @param policyHash Hash of the .gitpay.yml policy
+    /// @param policyHash Hash of the .osm402.yml policy
     /// @param asset ERC20 token address
     /// @param cap Maximum payout cap
     /// @param expiry Expiry timestamp

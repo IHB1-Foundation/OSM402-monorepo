@@ -1,5 +1,5 @@
 {
-  "name": "@gitpay/github-action",
+  "name": "@osm402/github-action",
   "version": "0.1.0",
   "private": true,
   "type": "module",

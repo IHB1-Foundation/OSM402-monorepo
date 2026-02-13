@@ -13,8 +13,6 @@ const envSchema = z.object({
     .default('true'),
   GITHUB_WEBHOOK_SECRET: z.string().default(''),
   OSM402_ACTION_SHARED_SECRET: z.string().default(''),
-  // Legacy alias retained for compatibility with existing environments/scripts.
-  GITPAY_ACTION_SHARED_SECRET: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

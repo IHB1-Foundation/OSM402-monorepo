@@ -12,11 +12,6 @@ describe('extractAddress', () => {
       .toBe('0xDeadBeefDeadBeefDeadBeefDeadBeefDeadBeef');
   });
 
-  it('still extracts address from legacy /gitpay address command', () => {
-    expect(extractAddress('/gitpay address 0x1234567890abcdef1234567890abcdef12345678'))
-      .toBe('0x1234567890abcdef1234567890abcdef12345678');
-  });
-
   it('extracts address from multiline text', () => {
     const text = 'Hey, here is my fix.\n\n/osm402 address 0xAbCdEf0123456789AbCdEf0123456789AbCdEf01\n\nThanks!';
     expect(extractAddress(text)).toBe('0xAbCdEf0123456789AbCdEf0123456789AbCdEf01');

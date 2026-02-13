@@ -1,10 +1,10 @@
-name: GitPay Demo
+name: OSM402 Demo
 
 on:
   workflow_dispatch:
     inputs:
       api_url:
-        description: 'GitPay API URL'
+        description: 'OSM402 API URL'
         required: true
         default: 'http://localhost:3000'
       issue_number:
@@ -19,7 +19,7 @@ on:
     types: [labeled]
 
 jobs:
-  gitpay-fund:
+  osm402-fund:
     runs-on: ubuntu-latest
     # Only run for bounty labels or manual dispatch
     if: >
@@ -44,12 +44,12 @@ jobs:
           cd apps/github-action
           npm run build
 
-      - name: Run GitPay Fund Action
+      - name: Run OSM402 Fund Action
         id: fund
         uses: ./apps/github-action
         with:
-          api_url: ${{ github.event.inputs.api_url || secrets.GITPAY_API_URL || 'http://localhost:3000' }}
-          action_secret: ${{ secrets.GITPAY_ACTION_SECRET }}
+          api_url: ${{ github.event.inputs.api_url || secrets.OSM402_API_URL || 'http://localhost:3000' }}
+          action_secret: ${{ secrets.OSM402_ACTION_SHARED_SECRET }}
           payer_address: ${{ secrets.X402_PAYER_ADDRESS || '0x0000000000000000000000000000000000000001' }}
           issue_number: ${{ github.event.inputs.issue_number || '' }}
           bounty_amount: ${{ github.event.inputs.bounty_amount || '' }}

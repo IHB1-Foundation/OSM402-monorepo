@@ -11,7 +11,7 @@ import { holdComment, paidComment } from '../services/comments.js';
 import { generateCartMandate } from '../services/mandate.js';
 import { releaseEscrow } from '../services/escrow.js';
 import { buildReleaseForPayout } from '../services/releaseConfig.js';
-import type { DiffSummary, PayoutResult, Policy } from '@gitpay/policy';
+import type { DiffSummary, PayoutResult, Policy } from '@osm402/policy';
 import { formatUnits, parseUnits, type Address, type Hex } from 'viem';
 import { activeChain } from '../config/chains.js';
 
@@ -53,7 +53,7 @@ interface IssueForPolicy {
 }
 
 /**
- * Build a fallback policy when .gitpay.yml is missing or invalid.
+ * Build a fallback policy when .osm402.yml is missing or invalid.
  */
 function buildDefaultPolicy(issue: IssueForPolicy): Policy {
   return {
@@ -181,21 +181,21 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
     });
   }
 
-  // Load policy from repo's .gitpay.yml (fallback to default)
-  const { parsePolicySafe, calculatePayout, evaluateHoldWithRiskFlags } = await import('@gitpay/policy');
+  // Load policy from repo's .osm402.yml (fallback to default)
+  const { parsePolicySafe, calculatePayout, evaluateHoldWithRiskFlags } = await import('@osm402/policy');
   let policy: Policy;
-  const policyYaml = await fetchRepoFile(repoKey, '.gitpay.yml', mergeSha);
+  const policyYaml = await fetchRepoFile(repoKey, '.osm402.yml', mergeSha);
   if (policyYaml) {
     const parsed = parsePolicySafe(policyYaml);
     if (parsed) {
       policy = parsed;
-      console.log(`[merge] Loaded .gitpay.yml from ${repoKey}@${mergeSha}`);
+      console.log(`[merge] Loaded .osm402.yml from ${repoKey}@${mergeSha}`);
     } else {
-      console.log('[merge] .gitpay.yml parse failed, using default policy');
+      console.log('[merge] .osm402.yml parse failed, using default policy');
       policy = buildDefaultPolicy(issue);
     }
   } else {
-    console.log('[merge] .gitpay.yml not found, using default policy');
+    console.log('[merge] .osm402.yml not found, using default policy');
     policy = buildDefaultPolicy(issue);
   }
 
@@ -208,7 +208,8 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
       const { runReview } = await import('../services/reviewer.js');
       const review = await runReview(prRecord);
       if (review) {
-        riskFlags = review.riskFlags;
+        riskFlags = review.output.riskFlags;
+        console.log(`[merge] AI risk flags source=${review.source}, count=${riskFlags.length}`);
       }
     } catch {
       // AI review failure should not block payout

@@ -1,5 +1,5 @@
 {
-  "name": "@gitpay/server",
+  "name": "@osm402/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@gitpay/ai": "workspace:*",
-    "@gitpay/mandates": "workspace:*",
-    "@gitpay/policy": "workspace:*",
+    "@osm402/ai": "workspace:*",
+    "@osm402/mandates": "workspace:*",
+    "@osm402/policy": "workspace:*",
     "better-sqlite3": "^12.6.2",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

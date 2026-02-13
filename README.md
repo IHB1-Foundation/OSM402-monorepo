@@ -15,7 +15,7 @@ OSM402 is a GitHub-native bounty system that enables instant, auditable payouts 
 - **x402 Funding** — HTTP 402 challenge-response for payment
 - **EIP-712 Mandates** — Intent (maintainer) + Cart (agent) authorization
 - **Onchain Escrow** — Per-issue escrow on BITE V2 Sandbox 2 (SKALE) with replay protection
-- **Policy Engine** — Deterministic payout tiers from `.gitpay.yml`
+- **Policy Engine** — Deterministic payout tiers from `.osm402.yml`
 - **AI Reviewer** — Gemini for risk flags and HOLD signals (never decides amounts)
 
 ## Quick Start
@@ -122,7 +122,7 @@ contracts/
   src/             # Solidity: IssueEscrow + Factory
   test/            # Foundry tests
 packages/
-  policy/          # .gitpay.yml parser, payout calculator, HOLD evaluator
+  policy/          # .osm402.yml parser, payout calculator, HOLD evaluator
   mandates/        # EIP-712 Intent/Cart builders
   ai/              # Gemini client + JSON schema validation
   github/          # GitHub API wrapper (stub)
@@ -130,7 +130,7 @@ packages/
 
 ## Policy Configuration
 
-Add `.gitpay.yml` to your repo root. See the [example](.gitpay.yml) for the full schema.
+Add `.osm402.yml` to your repo root. See the [example](.osm402.yml) for the full schema.
 
 ```yaml
 version: 1

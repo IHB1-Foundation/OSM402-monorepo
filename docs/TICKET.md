@@ -186,7 +186,7 @@ A ticket is DONE only if:
   - Hashes match Solidity tests (golden vectors)
 - Dependencies: GP-011
 
-### GP-021 — Parse `.gitpay.yml` and compute policyHash
+### GP-021 — Parse `.osm402.yml` and compute policyHash
 
 - Type: Feature
 - Priority: P0
@@ -194,7 +194,7 @@ A ticket is DONE only if:
 - Description:
   - Implement YAML parser and normalization + hashing.
 - Tasks:
-  - Load `.gitpay.yml` from repo content via GitHub API
+  - Load `.osm402.yml` from repo content via GitHub API
   - Normalize YAML → bytes → keccak256 policyHash
 - Acceptance Criteria:
   - policyHash stable across runs for identical policy
@@ -471,7 +471,7 @@ A ticket is DONE only if:
 
 ## EPIC 7 — Demo, Docs, and Optional SKALE Mode
 
-### GP-070 — Example repo + `.gitpay.yml` template
+### GP-070 — Example repo + `.osm402.yml` template
 
 - Type: Docs
 - Priority: P0
@@ -573,11 +573,11 @@ A ticket is DONE only if:
 - Description:
   - Replace MVP stubs with real GitHub reads to improve “Commerce Realism” and “Ship-ability”.
 - Tasks:
-  - Load `.gitpay.yml` from repo content and compute `policyHash` (not default).
+  - Load `.osm402.yml` from repo content and compute `policyHash` (not default).
   - Fetch PR changed file paths and check-run statuses (required-check gating).
   - Use GitHub App installation token or `GITHUB_TOKEN` consistently (document both).
 - Acceptance Criteria:
-  - Payout amount and HOLD rules reflect the repo’s actual `.gitpay.yml`.
+  - Payout amount and HOLD rules reflect the repo’s actual `.osm402.yml`.
   - Missing required checks reliably triggers HOLD.
 - Dependencies: GP-021, GP-023, GP-042, GP-043
 

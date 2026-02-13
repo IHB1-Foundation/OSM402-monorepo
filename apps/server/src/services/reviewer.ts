@@ -4,11 +4,31 @@
  * Runs under timeouts and never blocks payout pipeline indefinitely.
  */
 
-import type { ReviewInput, ReviewOutput } from '@gitpay/ai';
+import type { ReviewInput, ReviewOutput } from '@osm402/ai';
 import type { PrRecord } from '../store/prs.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const REVIEW_TIMEOUT_MS = 30_000;
+
+export interface ReviewerStatus {
+  provider: 'gemini';
+  configured: boolean;
+  model: string;
+}
+
+export interface ReviewRunResult {
+  output: ReviewOutput;
+  source: 'gemini' | 'fallback';
+}
+
+export function getReviewerStatus(): ReviewerStatus {
+  return {
+    provider: 'gemini',
+    configured: Boolean(GEMINI_API_KEY),
+    model: GEMINI_MODEL,
+  };
+}
 
 /**
  * Build ReviewInput from PR record and optional patch content
@@ -37,23 +57,34 @@ function truncatePatch(patch: string, maxChars = 4000): string {
 /**
  * Run AI review on a PR. Returns null if unavailable or timed out.
  */
-export async function runReview(pr: PrRecord, patches?: string): Promise<ReviewOutput | null> {
+export async function runReview(pr: PrRecord, patches?: string): Promise<ReviewRunResult | null> {
   if (!GEMINI_API_KEY) {
     console.log('[reviewer] No GEMINI_API_KEY configured, skipping AI review');
     return null;
   }
 
   try {
-    // Dynamic import to avoid requiring @gitpay/ai when not configured
-    const { reviewPR, fallbackReview } = await import('@gitpay/ai');
+    // Dynamic import to avoid requiring @osm402/ai when not configured
+    const { reviewPR, fallbackReview } = await import('@osm402/ai');
     const input = buildReviewInput(pr, patches);
+    console.log(`[reviewer] Gemini review start: pr=${pr.prKey}, model=${GEMINI_MODEL}`);
 
     const result = await reviewPR(input, {
       apiKey: GEMINI_API_KEY,
+      model: GEMINI_MODEL,
       timeoutMs: REVIEW_TIMEOUT_MS,
     });
 
-    return result ?? fallbackReview();
+    if (result) {
+      console.log(
+        `[reviewer] Gemini review done: pr=${pr.prKey}, source=gemini, riskFlags=${result.riskFlags.length}, confidence=${result.confidence.toFixed(2)}`
+      );
+      return { output: result, source: 'gemini' };
+    }
+
+    const fallback = fallbackReview();
+    console.log(`[reviewer] Gemini unavailable: pr=${pr.prKey}, source=fallback`);
+    return { output: fallback, source: 'fallback' };
   } catch (error) {
     console.error('[reviewer] Review failed:', error);
     return null;

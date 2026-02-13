@@ -13,8 +13,8 @@ contract DeploySKALE is Script {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
-        address maintainerSigner = vm.envOr("GITPAY_MAINTAINER_ADDRESS", deployer);
-        address agentSigner = vm.envOr("GITPAY_AGENT_ADDRESS", deployer);
+        address maintainerSigner = vm.envOr("OSM402_MAINTAINER_ADDRESS", deployer);
+        address agentSigner = vm.envOr("OSM402_AGENT_ADDRESS", deployer);
 
         console.log("Deployer:", deployer);
         console.log("Chain ID:", block.chainid);

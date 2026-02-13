@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Router as ExpressRouter } from 'express';
 import { z } from 'zod';
 import { keccak256, toHex, type Address, parseUnits, formatUnits } from 'viem';
-import { createIntent, hashIntent } from '@gitpay/mandates';
+import { createIntent, hashIntent } from '@osm402/mandates';
 import { requirePayment, type X402Request } from '../middleware/x402.js';
 import {
   getIssue,

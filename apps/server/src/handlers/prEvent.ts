@@ -4,7 +4,7 @@
  */
 
 import { getPr, upsertPr, updatePr, getPrKey, type DiffSummary } from '../store/prs.js';
-import { runReview } from '../services/reviewer.js';
+import { runReview, getReviewerStatus } from '../services/reviewer.js';
 import { postIssueComment } from '../services/github.js';
 import { reviewComment } from '../services/comments.js';
 import { extractAddressFromPrBody } from './addressClaim.js';
@@ -82,9 +82,15 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
   if (prRecord) {
     const review = await runReview(prRecord);
     if (review) {
-      const comment = reviewComment(review);
+      const reviewer = getReviewerStatus();
+      const comment = reviewComment({
+        ...review.output,
+        aiProvider: reviewer.provider,
+        aiModel: reviewer.model,
+        aiSource: review.source,
+      });
       await postIssueComment(repoKey, prNumber, comment);
-      console.log(`[pr-event] AI review posted on ${prKey}`);
+      console.log(`[pr-event] AI review posted on ${prKey} (source=${review.source})`);
     }
   }
 

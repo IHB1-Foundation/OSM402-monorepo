@@ -34,19 +34,10 @@ describe('requireSecret middleware', () => {
 
   afterEach(() => {
     delete process.env.OSM402_ACTION_SHARED_SECRET;
-    delete process.env.GITPAY_ACTION_SHARED_SECRET;
   });
 
   it('calls next() when secret matches', () => {
     const { req, res } = mockReqRes({ 'x-osm402-secret': TEST_SECRET });
-    let called = false;
-    const next: NextFunction = () => { called = true; };
-    requireSecret(req, res, next);
-    expect(called).toBe(true);
-  });
-
-  it('accepts legacy x-gitpay-secret header for backward compatibility', () => {
-    const { req, res } = mockReqRes({ 'x-gitpay-secret': TEST_SECRET });
     let called = false;
     const next: NextFunction = () => { called = true; };
     requireSecret(req, res, next);
@@ -69,7 +60,6 @@ describe('requireSecret middleware', () => {
 
   it('returns 403 when server secret is not configured', () => {
     delete process.env.OSM402_ACTION_SHARED_SECRET;
-    delete process.env.GITPAY_ACTION_SHARED_SECRET;
     const { req, res } = mockReqRes({ 'x-osm402-secret': 'any-value' });
     const next: NextFunction = () => {};
     requireSecret(req, res, next);

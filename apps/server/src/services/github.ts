@@ -56,7 +56,7 @@ export async function postIssueComment(
 }
 
 /**
- * Fetch a file's content from a repo (e.g. .gitpay.yml).
+ * Fetch a file's content from a repo (e.g. .osm402.yml).
  * Returns decoded UTF-8 string or null if not found / no token.
  */
 export async function fetchRepoFile(

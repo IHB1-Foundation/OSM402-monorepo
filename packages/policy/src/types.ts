@@ -47,7 +47,7 @@ export const AddressClaimSchema = z.object({
 });
 
 /**
- * Complete .gitpay.yml policy schema
+ * Complete .osm402.yml policy schema
  */
 export const PolicySchema = z.object({
   version: z.number(),

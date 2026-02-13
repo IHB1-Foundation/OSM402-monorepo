@@ -133,7 +133,7 @@ OSM402 introduces a three-layer trust model:
 3. Maintainer merges PR into default branch.
 4. Webhook triggers OSM402 payout pipeline:
    - verify merge event and required checks,
-   - parse `.gitpay.yml` policy,
+   - parse `.osm402.yml` policy,
    - compute payout amount deterministically,
    - run Gemini review (optional) for `HOLD` or proceed,
    - create cart mandate,
@@ -164,7 +164,7 @@ OSM402 introduces a three-layer trust model:
    - optionally posts contributor wallet address claim if missing.
 3. **OSM402 API Server (Node.js/TypeScript)**
    - x402 middleware: returns 402 and verifies x402 payment receipts,
-   - policy engine: parses `.gitpay.yml`, computes `policyHash`, determines amount,
+   - policy engine: parses `.osm402.yml`, computes `policyHash`, determines amount,
    - mandate service: constructs and validates EIP-712 typed mandates,
    - payout executor: calls escrow contract.
 4. **AI Reviewer (Gemini)**
@@ -259,7 +259,7 @@ Example fields:
 
 Signed by:
 
-- `gitpayAgentSigner` (server key).
+- `osm402AgentSigner` (server key).
 
 ### 9.3 Why two mandates?
 
@@ -269,14 +269,14 @@ Signed by:
 
 ---
 
-## 10) Policy Engine (`.gitpay.yml`)
+## 10) Policy Engine (`.osm402.yml`)
 
 ### 10.1 Policy file goals
 
 - Deterministic payout decisions.
 - Deterministic `HOLD` rules.
 
-### 10.2 Example `.gitpay.yml`
+### 10.2 Example `.osm402.yml`
 
 ```yaml
 version: 1
@@ -477,7 +477,7 @@ osm402/
     script/          # Deploy scripts
     test/            # Contract tests
   packages/
-    policy/          # .gitpay.yml parser + policyHash + payout calc
+    policy/          # .osm402.yml parser + policyHash + payout calc
     mandates/        # EIP-712 typed data builders/verifiers
     github/          # Webhook verification + GitHub API wrapper
     ai/              # Gemini client + JSON schema validator
@@ -499,8 +499,8 @@ osm402/
 - `GITHUB_WEBHOOK_SECRET`
 - `GITHUB_CLIENT_ID` (optional)
 - `GITHUB_CLIENT_SECRET` (optional)
-- `GITPAY_AGENT_PRIVATE_KEY` (EOA for signing cart mandates)
-- `GITPAY_MAINTAINER_PRIVATE_KEY` (for signing intent mandates in MVP demo)
+- `OSM402_AGENT_PRIVATE_KEY` (EOA for signing cart mandates)
+- `OSM402_MAINTAINER_PRIVATE_KEY` (for signing intent mandates in MVP demo)
 - `CHAIN_ID` (BITE V2 Sandbox 2)
 - `RPC_URL`
 - `ESCROW_FACTORY_ADDRESS`
@@ -509,8 +509,8 @@ osm402/
 
 ### GitHub Action
 
-- `OSM402_API_URL` (legacy alias: `GITPAY_API_URL`)
-- `OSM402_ACTION_SHARED_SECRET` (legacy alias: `GITPAY_ACTION_SHARED_SECRET`)
+- `OSM402_API_URL`
+- `OSM402_ACTION_SHARED_SECRET`
 - `X402_PAYER_PRIVATE_KEY` (demo payer key; do not use in production)
 
 ---
@@ -540,7 +540,7 @@ osm402/
 
 1. Deploy contracts.
 2. Fund payer wallet and maintainer/agent keys.
-3. Add `.gitpay.yml` to test repo.
+3. Add `.osm402.yml` to test repo.
 4. Add bounty label.
 5. Create PR and comment wallet address.
 6. Merge PR and observe payout.

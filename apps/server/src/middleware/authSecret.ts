@@ -2,24 +2,19 @@ import type { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
 
 /**
- * Middleware that verifies OSM402/GitPay secret header against the configured shared secret.
- * Fails closed: rejects all requests when GITPAY_ACTION_SHARED_SECRET is unset.
+ * Middleware that verifies OSM402 secret header against the configured shared secret.
+ * Fails closed: rejects all requests when OSM402_ACTION_SHARED_SECRET is unset.
  */
 export function requireSecret(req: Request, res: Response, next: NextFunction): void {
-  const secret =
-    process.env.OSM402_ACTION_SHARED_SECRET ||
-    process.env.GITPAY_ACTION_SHARED_SECRET ||
-    '';
+  const secret = process.env.OSM402_ACTION_SHARED_SECRET || '';
   if (!secret) {
     res.status(403).json({ error: 'Server shared secret not configured' });
     return;
   }
 
-  const provided =
-    (req.headers['x-osm402-secret'] as string | undefined) ??
-    (req.headers['x-gitpay-secret'] as string | undefined);
+  const provided = req.headers['x-osm402-secret'] as string | undefined;
   if (!provided) {
-    res.status(401).json({ error: 'Missing X-OSM402-Secret header (or legacy X-GitPay-Secret)' });
+    res.status(401).json({ error: 'Missing X-OSM402-Secret header' });
     return;
   }
 
@@ -28,7 +23,7 @@ export function requireSecret(req: Request, res: Response, next: NextFunction): 
     secret.length !== provided.length ||
     !crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(provided))
   ) {
-    res.status(403).json({ error: 'Invalid X-OSM402-Secret (or legacy X-GitPay-Secret)' });
+    res.status(403).json({ error: 'Invalid X-OSM402-Secret' });
     return;
   }
 

@@ -45,13 +45,13 @@ importers:
 
   apps/server:
     dependencies:
-      '@gitpay/ai':
+      '@osm402/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@gitpay/mandates':
+      '@osm402/mandates':
         specifier: workspace:*
         version: link:../../packages/mandates
-      '@gitpay/policy':
+      '@osm402/policy':
         specifier: workspace:*
         version: link:../../packages/policy
       better-sqlite3:

@@ -19,8 +19,8 @@ contract Deploy is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         // Load signer addresses from environment, with defaults
-        address maintainerSigner = vm.envOr("GITPAY_MAINTAINER_ADDRESS", deployer);
-        address agentSigner = vm.envOr("GITPAY_AGENT_ADDRESS", deployer);
+        address maintainerSigner = vm.envOr("OSM402_MAINTAINER_ADDRESS", deployer);
+        address agentSigner = vm.envOr("OSM402_AGENT_ADDRESS", deployer);
 
         console.log("Deployer:", deployer);
         console.log("Maintainer Signer:", maintainerSigner);

@@ -9,7 +9,7 @@ import {
   parseAbi,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import type { Cart, Intent } from '@gitpay/mandates';
+import type { Cart, Intent } from '@osm402/mandates';
 import { activeChain } from '../config/chains.js';
 
 // --- ABI fragments for onchain interactions ---
@@ -38,8 +38,8 @@ const ESCROW_ABI = parseAbi([
 const MOCK_MODE = process.env.ESCROW_MOCK_MODE !== 'false';
 
 function getAgentKey(): Hex {
-  const key = process.env.GITPAY_AGENT_PRIVATE_KEY;
-  if (!key) throw new Error('GITPAY_AGENT_PRIVATE_KEY not set');
+  const key = process.env.OSM402_AGENT_PRIVATE_KEY;
+  if (!key) throw new Error('OSM402_AGENT_PRIVATE_KEY not set');
   return key as Hex;
 }
 

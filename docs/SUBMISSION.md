@@ -12,7 +12,7 @@
 | Requirement | Where it is implemented | Evidence to show |
 |---|---|---|
 | discover -> decide -> pay/settle -> outcome | `apps/server/src/scripts/agentFundOpenBounties.ts`, `apps/server/src/handlers/mergeDetected.ts`, `apps/server/src/routes/payout.ts` | Demo: `docs/DEMO.md` section 8 |
-| Deterministic and reliable flow | `.gitpay.yml` + policy engine + idempotency checks | PASS/HOLD split + re-run behavior in logs |
+| Deterministic and reliable flow | `.osm402.yml` + policy engine + idempotency checks | PASS/HOLD split + re-run behavior in logs |
 | Trust and safety guardrails | HOLD rules, required checks, intent/cart mandates, escrow constraints | `OSM402 - HOLD` comment + contract constraints |
 | Receipts and audit trail | Funding/payout comments include tx/hash refs | `apps/server/src/services/comments.ts` |
 

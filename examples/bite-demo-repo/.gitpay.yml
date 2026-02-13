@@ -1,8 +1,0 @@
-version: 1
-payout:
-  mode: fixed
-  fixedAmountUsd: 5
-addressClaim:
-  mode: pr_comment
-  command: "gitpay:address"
-

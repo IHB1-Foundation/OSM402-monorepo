@@ -2,7 +2,7 @@ import YAML from 'yaml';
 import { PolicySchema, type Policy } from './types.js';
 
 /**
- * Parse a .gitpay.yml file content into a Policy object
+ * Parse a .osm402.yml file content into a Policy object
  * @param content Raw YAML content
  * @returns Parsed and validated Policy
  * @throws Error if parsing or validation fails
@@ -13,7 +13,7 @@ export function parsePolicy(content: string): Policy {
 }
 
 /**
- * Safely parse a .gitpay.yml file content
+ * Safely parse a .osm402.yml file content
  * @param content Raw YAML content
  * @returns Parsed Policy or null if invalid
  */
