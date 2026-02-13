@@ -107,7 +107,7 @@ Use this when you want the full “Commerce Realism” story:
   GITPAY_AGENT_PRIVATE_KEY=<cart_signer_and_tx_sender_key>
   ```
 
-#### 5.2 Deploy contracts to SKALE Base Sepolia
+#### 5.2 Deploy contracts to BITE V2 Sandbox 2
 
   ```bash
   export BITE_V2_SANDBOX_2_RPC_URL="https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2"
