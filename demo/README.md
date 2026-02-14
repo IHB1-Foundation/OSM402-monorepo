@@ -26,3 +26,16 @@ So any PR touching workflow files is expected to produce HOLD behavior.
 2. Create one issue using `demo/ISSUE_DEMO_001.md` and add label `bounty:$0.1`.
 3. Open PR from `demo/pr-reject-repo` first to show HOLD behavior.
 4. Open PR from `demo/pr-accept-repo` to show normal paid behavior.
+
+## Pre-check command
+
+Run this before live demo:
+
+```bash
+pnpm demo:gemini-check
+```
+
+Expected summary:
+
+- `ACCEPT_DECISION=ACCEPT_READY`
+- `REJECT_DECISION=REJECT_HOLD`

@@ -67,6 +67,13 @@ cp .env.example .env
 - `X402_MOCK_MODE=false`
 - `ESCROW_MOCK_MODE=false`
 
+선택(완전 자동 데모):
+
+- `OSM402_AUTO_FUND_ON_LABEL=true`  # `bounty:$...` 라벨 추가 시 서버가 자동으로 에스크로 생성+펀딩 처리
+- `OSM402_AUTO_MERGE=true`          # PR AI 리뷰가 HOLD가 아니면 서버가 자동 머지 시도
+- `OSM402_AUTO_MERGE_METHOD=squash` # merge|squash|rebase
+- `OSM402_AUTO_MERGE_MIN_CONFIDENCE=0.7`
+
 필수 추가:
 
 - `OSM402_MAINTAINER_ADDRESS`
@@ -101,7 +108,7 @@ pnpm --filter contracts deploy:bite-v2-sandbox-2
 터미널 A:
 
 ```bash
-pnpm dev --filter server
+pnpm --filter @osm402/server dev
 ```
 
 터미널 B:
@@ -110,7 +117,7 @@ pnpm dev --filter server
 set -a
 source .env
 set +a
-ngrok http 3000
+ngrok http 3010
 ```
 
 GitHub App 설정:
@@ -127,13 +134,73 @@ GitHub App 설정:
   - Pull request
   - Issue comment
 
+설치 검증(필수):
+
+```bash
+pnpm demo:check-github-app
+```
+
+기대 출력:
+
+- `installation_lookup_status=200`
+- `installation_token_status=201`
+- `ok=true`
+
+`installation_lookup_status=404`가 나오면:
+
+- App이 `DEMO_REPO`에 설치되지 않았거나
+- 설치 대상 account/org가 다르거나
+- org owner 승인이 아직 안 끝났거나
+- `.env`의 `DEMO_REPO`가 실제 설치 repo와 다름
+
 헬스체크:
 
 ```bash
-curl -s http://localhost:3000/api/health | jq
+curl -s http://localhost:3010/api/health | jq
 ```
 
+웹훅 live 체크리스트:
+
+1. GitHub App -> `Advanced` -> `Recent Deliveries`에서 최근 webhook 전달이 생성되는지 확인
+2. 전달 상세에서 HTTP status가 `200`인지 확인
+3. 로컬 서버 로그에 `pull_request.opened|closed`, `issues.labeled` 이벤트 수신 로그가 찍히는지 확인
+
 ## 6) 데모 시나리오
+
+### 6.0 데모 repo 시드(필수)
+
+`DEMO_REPO`가 비어 있거나 baseline 코드가 없으면 먼저 시드한다.
+
+```bash
+WORKSPACE_DIR="$(pwd)"
+
+# 1) 데모 원본 코드를 대상 repo(main)에 반영
+git clone "https://github.com/$DEMO_REPO.git" /tmp/osm402-demo-repo
+rsync -a --delete "$WORKSPACE_DIR/demo/origin-repo/" /tmp/osm402-demo-repo/
+cd /tmp/osm402-demo-repo
+git add .
+git commit -m "chore: seed OSM402 demo baseline"
+git push origin main
+```
+
+PR 브랜치 2개 준비:
+
+```bash
+# accept PR branch
+git checkout -b fix/add-pass
+rsync -a --delete "$WORKSPACE_DIR/demo/pr-accept-repo/" /tmp/osm402-demo-repo/
+git add .
+git commit -m "fix: add() implementation"
+git push -u origin fix/add-pass
+
+# reject(HOLD) PR branch
+git checkout main
+git checkout -b chore/workflow-hold
+rsync -a --delete "$WORKSPACE_DIR/demo/pr-reject-repo/" /tmp/osm402-demo-repo/
+git add .
+git commit -m "chore: ci workflow update"
+git push -u origin chore/workflow-hold
+```
 
 ### 6.1 사전 준비
 
@@ -142,11 +209,20 @@ curl -s http://localhost:3000/api/health | jq
    - PASS 이슈
    - HOLD 이슈
 3. 각 이슈에 `bounty:$0.1` 라벨 추가
+4. 이슈 본문은 `demo/ISSUE_DEMO_001.md` 기준 사용
+
+### 6.1.1 실제 PR 생성 규칙
+
+- PASS PR: `fix/add-pass` -> `main`
+- HOLD PR: `chore/workflow-hold` -> `main`
+- 두 PR 본문에 반드시 포함:
+  - `Closes #<ISSUE_NUMBER>`
+  - `osm402:address 0x...`
 
 ### 6.2 펀딩 실행 (x402)
 
 ```bash
-pnpm --filter server tsx src/scripts/agentFundOpenBounties.ts \
+pnpm --filter @osm402/server tsx src/scripts/agentFundOpenBounties.ts \
   --repo "$DEMO_REPO" \
   --secret "$OSM402_ACTION_SHARED_SECRET" \
   --private-key "$X402_PAYER_PRIVATE_KEY" \
@@ -159,9 +235,9 @@ pnpm --filter server tsx src/scripts/agentFundOpenBounties.ts \
 ISSUE_PASS=<pass-issue-number>
 ISSUE_HOLD=<hold-issue-number>
 
-curl -s "http://localhost:3000/api/fund/$DEMO_REPO/$ISSUE_PASS" \
+curl -s "http://localhost:3010/api/fund/$DEMO_REPO/$ISSUE_PASS" \
   -H "X-OSM402-Secret: $OSM402_ACTION_SHARED_SECRET" | jq
-curl -s "http://localhost:3000/api/fund/$DEMO_REPO/$ISSUE_HOLD" \
+curl -s "http://localhost:3010/api/fund/$DEMO_REPO/$ISSUE_HOLD" \
   -H "X-OSM402-Secret: $OSM402_ACTION_SHARED_SECRET" | jq
 ```
 
@@ -193,7 +269,7 @@ HOLD API 확인:
 
 ```bash
 HOLD_PR_NO=<hold-pr-number>
-curl -s -X POST http://localhost:3000/api/payout/execute \
+curl -s -X POST http://localhost:3010/api/payout/execute \
   -H "Content-Type: application/json" \
   -H "X-OSM402-Secret: $OSM402_ACTION_SHARED_SECRET" \
   -d '{"repoKey":"'"$DEMO_REPO"'","prNumber":'"$HOLD_PR_NO"'}' | jq
@@ -224,4 +300,4 @@ pnpm evidence:collect
 - webhook 401: `GITHUB_WEBHOOK_SECRET` 불일치
 - 계속 402: payer USDC 부족/잘못된 전송
 - payout 실패: maintainer/agent 주소-키 불일치
-- GitHub 코멘트 누락: App 권한 또는 설치 대상 repo 확인
+- GitHub 코멘트 누락: `pnpm demo:check-github-app` 재실행 후 App 권한/설치 대상 repo 확인
