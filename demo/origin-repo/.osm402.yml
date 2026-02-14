@@ -1,0 +1,14 @@
+version: 1
+payout:
+  mode: fixed
+  fixedAmountUsd: 0.1
+holdIf:
+  - rule: touchesPaths
+    any:
+      - '.github/workflows/**'
+      - 'package-lock.json'
+      - 'pnpm-lock.yaml'
+      - 'yarn.lock'
+addressClaim:
+  mode: pr_comment
+  command: "osm402:address"
