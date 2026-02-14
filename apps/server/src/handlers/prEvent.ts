@@ -4,9 +4,10 @@
  */
 
 import { getPr, upsertPr, updatePr, getPrKey, type DiffSummary } from '../store/prs.js';
+import { getIssue } from '../store/issues.js';
+import { config } from '../config.js';
 import { runReview, getReviewerStatus, buildPolicyContext } from '../services/reviewer.js';
-import { postIssueComment } from '../services/github.js';
-import { fetchPrFiles, fetchRepoFile } from '../services/github.js';
+import { postIssueComment, fetchPrFiles, fetchRepoFile, mergePullRequest } from '../services/github.js';
 import { reviewComment } from '../services/comments.js';
 import { extractAddressFromPrBody } from './addressClaim.js';
 
@@ -45,6 +46,85 @@ async function loadPolicyContext(repoKey: string, ref: string) {
   const parsed = parsePolicySafe(policyYaml);
   if (!parsed) return undefined;
   return buildPolicyContext(parsed);
+}
+
+async function loadPolicy(repoKey: string, ref: string) {
+  const { parsePolicySafe } = await import('@osm402/policy');
+  const policyYaml = await fetchRepoFile(repoKey, '.osm402.yml', ref);
+  if (!policyYaml) return undefined;
+  const parsed = parsePolicySafe(policyYaml);
+  if (!parsed) return undefined;
+  return parsed;
+}
+
+async function maybeAutoMerge(params: {
+  repoKey: string;
+  prNumber: number;
+  headSha: string;
+  baseRef: string;
+  defaultBranch: string;
+  linkedIssue?: number;
+  changedFiles: string[];
+  contributorAddress?: string;
+  review: { riskFlags: string[]; confidence: number };
+}): Promise<void> {
+  if (!config.OSM402_AUTO_MERGE) return;
+
+  if (params.baseRef !== params.defaultBranch) {
+    console.log(`[automerge] Skip ${params.repoKey}#PR${params.prNumber}: base=${params.baseRef} default=${params.defaultBranch}`);
+    return;
+  }
+
+  if (!params.linkedIssue) {
+    console.log(`[automerge] Skip ${params.repoKey}#PR${params.prNumber}: no linked issue`);
+    return;
+  }
+
+  const issue = getIssue(params.repoKey, params.linkedIssue);
+  if (!issue || issue.status !== 'FUNDED') {
+    console.log(`[automerge] Skip ${params.repoKey}#PR${params.prNumber}: issue not funded`);
+    return;
+  }
+
+  if (!params.contributorAddress) {
+    console.log(`[automerge] Skip ${params.repoKey}#PR${params.prNumber}: missing contributor address`);
+    return;
+  }
+
+  if (params.review.confidence < config.OSM402_AUTO_MERGE_MIN_CONFIDENCE) {
+    console.log(`[automerge] Skip ${params.repoKey}#PR${params.prNumber}: low confidence (${params.review.confidence.toFixed(2)})`);
+    return;
+  }
+
+  const policy = await loadPolicy(params.repoKey, params.headSha);
+  if (policy) {
+    const { evaluateHoldWithRiskFlags } = await import('@osm402/policy');
+    const hold = evaluateHoldWithRiskFlags(
+      policy,
+      { filesChanged: params.changedFiles },
+      params.review.riskFlags,
+    );
+    if (hold.shouldHold) {
+      console.log(`[automerge] Skip ${params.repoKey}#PR${params.prNumber}: HOLD (${hold.reasons.join('; ')})`);
+      return;
+    }
+  } else if (params.review.riskFlags.length > 0) {
+    console.log(`[automerge] Skip ${params.repoKey}#PR${params.prNumber}: no policy but AI risk flags present`);
+    return;
+  }
+
+  const merge = await mergePullRequest(params.repoKey, params.prNumber, {
+    mergeMethod: config.OSM402_AUTO_MERGE_METHOD,
+    sha: params.headSha,
+    commitTitle: `OSM402: auto-merge PR #${params.prNumber}`,
+  });
+
+  if (!merge.success || !merge.merged) {
+    console.log(`[automerge] Merge failed ${params.repoKey}#PR${params.prNumber}: ${merge.status ?? 'n/a'} ${merge.message ?? merge.error ?? 'unknown'}`);
+    return;
+  }
+
+  console.log(`[automerge] Merged ${params.repoKey}#PR${params.prNumber} sha=${merge.mergeSha ?? 'n/a'}`);
 }
 
 async function postCommentOrThrow(repoKey: string, prNumber: number, body: string): Promise<void> {
@@ -122,6 +202,18 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
       });
       await postCommentOrThrow(repoKey, prNumber, comment);
       console.log(`[pr-event] AI review posted on ${prKey} (source=${review.source})`);
+
+      await maybeAutoMerge({
+        repoKey,
+        prNumber,
+        headSha: pr.head.sha,
+        baseRef: pr.base.ref,
+        defaultBranch: payload.repository.default_branch,
+        linkedIssue,
+        changedFiles,
+        contributorAddress,
+        review: { riskFlags: review.output.riskFlags, confidence: review.output.confidence },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[pr-event] Mandatory AI review failed on ${prKey}: ${message}`);
@@ -158,12 +250,18 @@ export async function handlePrSynchronize(payload: PrPayload): Promise<{
     changedFiles,
   };
 
+  const linkedIssue = extractLinkedIssue(pr.body);
+  const contributorAddress = extractAddressFromPrBody(pr.body) ?? undefined;
+
   if (existing) {
-    updatePr(repoKey, prNumber, { diff });
+    updatePr(repoKey, prNumber, {
+      diff,
+      issueNumber: existing.issueNumber ?? linkedIssue,
+      contributorAddress: contributorAddress ?? existing.contributorAddress,
+    });
     console.log(`[pr-event] PR ${prKey} synchronized (updated diff)`);
   } else {
     // PR not in store yet, create it
-    const linkedIssue = extractLinkedIssue(pr.body);
     upsertPr({
       id: prKey,
       prKey,
@@ -171,12 +269,57 @@ export async function handlePrSynchronize(payload: PrPayload): Promise<{
       prNumber,
       issueNumber: linkedIssue,
       contributorGithub: pr.user.login,
+      contributorAddress,
       diff,
       status: 'OPEN',
       createdAt: new Date(),
       updatedAt: new Date(),
     });
     console.log(`[pr-event] PR ${prKey} synchronized (created record)`);
+  }
+
+  if (config.OSM402_AUTO_MERGE) {
+    const prRecord = getPr(repoKey, prNumber);
+    if (prRecord) {
+      try {
+        const policyContext = await loadPolicyContext(repoKey, pr.head.sha);
+        const review = await runReview(prRecord, undefined, {
+          prTitle: pr.title,
+          prBody: pr.body,
+          policyContext,
+        });
+        const reviewer = getReviewerStatus();
+        const comment = reviewComment({
+          ...review.output,
+          aiProvider: reviewer.provider,
+          aiModel: reviewer.model,
+          aiSource: review.source,
+        });
+        await postCommentOrThrow(repoKey, prNumber, comment);
+        console.log(`[pr-event] AI review posted on ${prKey} (source=${review.source})`);
+
+        await maybeAutoMerge({
+          repoKey,
+          prNumber,
+          headSha: pr.head.sha,
+          baseRef: pr.base.ref,
+          defaultBranch: payload.repository.default_branch,
+          linkedIssue: prRecord.issueNumber ?? linkedIssue,
+          changedFiles,
+          contributorAddress: prRecord.contributorAddress ?? contributorAddress,
+          review: { riskFlags: review.output.riskFlags, confidence: review.output.confidence },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[pr-event] Mandatory AI review failed on ${prKey}: ${message}`);
+        await postCommentOrThrow(
+          repoKey,
+          prNumber,
+          `**OSM402** AI review failed and must be resolved before payout.\n\nReason: \`${message}\``
+        );
+        throw error;
+      }
+    }
   }
 
   return { handled: true, prKey };

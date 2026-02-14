@@ -26,6 +26,16 @@ const envSchema = z.object({
     .string()
     .transform((val) => val === 'true')
     .default('true'),
+  OSM402_AUTO_FUND_ON_LABEL: z
+    .string()
+    .transform((val) => val === 'true')
+    .default('false'),
+  OSM402_AUTO_MERGE: z
+    .string()
+    .transform((val) => val === 'true')
+    .default('false'),
+  OSM402_AUTO_MERGE_METHOD: z.enum(['merge', 'squash', 'rebase']).default('squash'),
+  OSM402_AUTO_MERGE_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.7),
   GITHUB_WEBHOOK_SECRET: z.string().default(''),
   OSM402_ACTION_SHARED_SECRET: z.string().default(''),
   GEMINI_API_KEY: z.string().min(1, 'GEMINI_API_KEY is required'),

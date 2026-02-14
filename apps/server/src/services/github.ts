@@ -151,3 +151,66 @@ export async function fetchCheckRuns(
 
   return results;
 }
+
+export async function mergePullRequest(
+  repoKey: string,
+  prNumber: number,
+  params?: {
+    mergeMethod?: 'merge' | 'squash' | 'rebase';
+    sha?: string;
+    commitTitle?: string;
+    commitMessage?: string;
+  }
+): Promise<{
+  success: boolean;
+  merged: boolean;
+  mergeSha?: string;
+  message?: string;
+  status?: number;
+  error?: string;
+}> {
+  const token = await getToken(repoKey);
+  if (!token) {
+    console.log(`[github] No token — cannot merge ${repoKey}#PR${prNumber}`);
+    return { success: false, merged: false, error: 'no_token' };
+  }
+
+  const url = `${GITHUB_API}/repos/${repoKey}/pulls/${prNumber}/merge`;
+  const body: Record<string, unknown> = {};
+  if (params?.mergeMethod) body.merge_method = params.mergeMethod;
+  if (params?.sha) body.sha = params.sha;
+  if (params?.commitTitle) body.commit_title = params.commitTitle;
+  if (params?.commitMessage) body.commit_message = params.commitMessage;
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { ...(await headers(repoKey)), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const text = await res.text().catch(() => '');
+  let data: Record<string, unknown> = {};
+  try {
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    data = { raw: text };
+  }
+
+  if (!res.ok) {
+    console.error(`[github] Failed to merge PR: ${res.status} ${text}`);
+    return {
+      success: false,
+      merged: false,
+      status: res.status,
+      error: typeof data === 'object' ? JSON.stringify(data) : String(data),
+    };
+  }
+
+  return {
+    success: true,
+    merged: Boolean(data.merged),
+    mergeSha: typeof data.sha === 'string' ? data.sha : undefined,
+    message: typeof data.message === 'string' ? data.message : undefined,
+    status: res.status,
+  };
+}

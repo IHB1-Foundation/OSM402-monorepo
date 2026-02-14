@@ -4,11 +4,13 @@
  */
 
 import { keccak256, toHex, type Address, parseUnits } from 'viem';
+import { config } from '../config.js';
 import { getIssue, upsertIssue } from '../store/issues.js';
 import { predictEscrowAddress } from '../services/escrow.js';
 import { postIssueComment } from '../services/github.js';
 import { fundingPendingComment } from '../services/comments.js';
 import { activeChain } from '../config/chains.js';
+import { autoFundIssue } from '../services/autoFund.js';
 
 interface IssueLabeledPayload {
   action: 'labeled';
@@ -105,6 +107,17 @@ export async function handleIssueLabeled(payload: IssueLabeledPayload): Promise<
   await postIssueComment(repoKey, issueNumber, comment);
 
   console.log(`[issue-labeled] ${issueKey} recorded as PENDING, escrow=${escrowAddress}`);
+
+  if (config.OSM402_AUTO_FUND_ON_LABEL) {
+    void autoFundIssue(repoKey, issueNumber)
+      .then((result) => {
+        console.log(`[issue-labeled] Auto-fund result for ${issueKey}: ${result.success ? 'ok' : 'fail'} (${result.reason})`);
+      })
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[issue-labeled] Auto-fund error for ${issueKey}: ${msg}`);
+      });
+  }
 
   return {
     handled: true,
