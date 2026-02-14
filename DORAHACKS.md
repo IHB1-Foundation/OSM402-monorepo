@@ -15,6 +15,37 @@ OSM402 is a GitHub-native bounty system where an agent can fund issues via x402 
 - Overall Track: Best Agentic App / Agent
 - Best Integration of AP2
 
+## Track Fit and Requirement Mapping
+
+### Overall Track: Best Agentic App / Agent
+
+This is our primary track. We demonstrate an end-to-end commerce workflow with real payment and settlement.
+
+| Track requirement | How OSM402 implements it | Where in the repo | Evidence to show |
+|---|---|---|---|
+| Real workflow: discover → decide → pay/settle → outcome | GitHub issue labeled becomes a bounty candidate; agent funds via x402; merge triggers deterministic payout via escrow; comments + tx hashes as receipts | Discover/decide: `packages/policy/`, `docs/PROJECT.md` • Pay: `apps/server/src/routes/fund.ts`, `apps/server/src/middleware/x402.ts`, `apps/server/src/scripts/x402Fund.ts` • Settle: `apps/server/src/handlers/mergeDetected.ts`, `apps/server/src/routes/payout.ts`, `contracts/src/IssueEscrow.sol` | Demo sequence below + `pnpm evidence:collect` output + GitHub comments `OSM402 — Funded/Paid/HOLD` |
+| Meaningful agents/protocols | x402 (HTTP `402` → pay → retry) + EIP-712 mandates for authorization + onchain escrow settlement | `apps/server/src/middleware/x402.ts`, `packages/mandates/`, `contracts/` | Show a real 402 challenge + onchain USDC transfer + retry success |
+| Reliability (deterministic flow) | `.osm402.yml` policy drives deterministic tiers + HOLD rules; payout is computed from policy, not AI; errors fail safely into `HOLD` | `packages/policy/`, `.osm402.yml`, `apps/server/src/handlers/mergeDetected.ts` | PASS and HOLD merge cases; repeat payout attempt should be blocked/idempotent |
+| Trust + safety guardrails | Spend caps (`bounty:$X`), required checks, sensitive-path HOLD rules, webhook HMAC verification, shared secret for internal endpoints | `.osm402.yml`, `apps/server/src/routes/fund.ts`, `apps/server/src/routes/payout.ts`, `apps/server/src/routes/webhooks.ts` | HOLD scenario for `.github/workflows/**` + `/api/payout/execute` returns `409` |
+| Receipts / audit trail | Every step emits a human-readable GitHub comment with hashes + tx links; evidence bundle script captures API responses + AP2 failure logs | `apps/server/src/services/comments.ts`, `scripts/evidence-pack.sh` | `artifacts/evidence-*/SUMMARY.md` + screenshots of GitHub comments |
+
+### Best Integration of AP2
+
+We implement an AP2-inspired authorization pattern: **Intent (maintainer) → Cart (agent) → settlement (escrow release) → receipt**.
+
+| Track requirement | How OSM402 implements it | Where in the repo | Evidence to show |
+|---|---|---|---|
+| Clean intent → authorization → settlement | Maintainer signs an **Intent** (cap/expiry/policy) and agent signs a **Cart** (intentHash/mergeSha/pr/recipient/amount). Escrow verifies both and executes `release(...)`. | `packages/mandates/`, `apps/server/src/services/releaseConfig.ts`, `contracts/src/IssueEscrow.sol` | Paid merge shows `intentHash` + `cartHash` + onchain `txHash` in GitHub comment |
+| Auditable receipt/record | GitHub comments include `txHash`, `cartHash`, `intentHash`, merge SHA; onchain tx is linkable in the explorer | `apps/server/src/services/comments.ts`, `apps/server/src/config/chains.ts` | Screenshot of `OSM402 — Paid` comment + explorer link |
+| Failure mode evidence | Foundry tests cover invalid signer, replay/double-pay, and mismatch cases reverting | `scripts/ap2-failure-mode.sh`, `contracts/test/IssueEscrow.t.sol` | `pnpm demo:ap2-failure` output + `pnpm evidence:collect` bundle |
+| Clear authorization boundaries | Authorization is separated from execution: signatures are created by specific roles; settlement happens in escrow with replay protection | `apps/server/src/services/releaseConfig.ts`, `contracts/src/IssueEscrow.sol` | Show signers + failure-mode tests |
+
+### Not Targeted (This Submission)
+
+- **Agentic Tool Usage on x402 (CDP Wallets)**: we demonstrate the real x402 `402` → pay → retry flow, but we do **not** integrate CDP Wallets custody/signing in this repo.
+- **Best Trading / DeFi Agent**: no trading, routing, or DeFi actions are implemented.
+- **Encrypted Agents (BITE v2 threshold encryption)**: we deploy and run on the BITE V2 Sandbox 2 chain, but we do **not** use BITE v2 threshold encryption / conditional decryption flows in this project.
+
 ## Links (Fill Before Submit)
 
 - Repo: `https://github.com/IHB1-Foundation/OSM402-monorepo`
