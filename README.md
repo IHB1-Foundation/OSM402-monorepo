@@ -40,7 +40,7 @@ cp .env.example .env
 # Build packages
 pnpm -r build
 
-# Start server (development mode with mock payments)
+# Start server
 pnpm dev --filter server
 ```
 
@@ -48,11 +48,12 @@ pnpm dev --filter server
 
 For a real online GitHub demo, run the server locally and configure a GitHub App:
 
-- Create a GitHub App (Repository permissions: **Issues: Read & write**, **Pull requests: Read**, **Contents: Read**, **Checks: Read**)
+- Create a GitHub App (Repository permissions: **Issues: Read & write**, **Pull requests: Read & write**, **Contents: Read**, **Checks: Read**)
 - Subscribe to webhook events: `issues`, `pull_request`, `issue_comment`
 - Set webhook URL to `https://<your-public-url>/api/webhooks/github` (use ngrok for local)
 - Set `.env`:
   - `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PEM`, `GITHUB_WEBHOOK_SECRET`
+  - `DEPLOYER_PRIVATE_KEY`, `OSM402_MAINTAINER_PRIVATE_KEY`, `OSM402_AGENT_PRIVATE_KEY`, `X402_PAYER_PRIVATE_KEY` (single-wallet mode: same key for all 4)
   - or set `GITHUB_TOKEN` as a simpler fallback
 
 The server will verify `X-Hub-Signature-256` against the raw webhook payload.
@@ -157,8 +158,13 @@ See [.env.example](.env.example) for the full list. Key variables:
 | Variable | Description |
 |----------|-------------|
 | `PORT` | Server port (default: 3000) |
-| `X402_MOCK_MODE` | Use mock payments for local dev (default: true) |
+| `X402_MOCK_MODE` | Use mock payments (`false` for real-chain demo) |
 | `GITHUB_WEBHOOK_SECRET` | GitHub webhook HMAC secret |
+| `OSM402_ACTION_SHARED_SECRET` | Internal API auth secret (`X-OSM402-Secret`) |
+| `DEPLOYER_PRIVATE_KEY` | Deployer wallet private key |
+| `OSM402_MAINTAINER_PRIVATE_KEY` | Intent signer private key (single-wallet mode: same as deployer) |
+| `OSM402_AGENT_PRIVATE_KEY` | Cart/release signer private key (single-wallet mode: same as deployer) |
+| `X402_PAYER_PRIVATE_KEY` | x402 payer private key (single-wallet mode: same as deployer) |
 | `GEMINI_API_KEY` | Gemini API key for AI review |
 | `CHAIN_ID` | Target chain (default: 103698795 BITE V2 Sandbox 2) |
 
