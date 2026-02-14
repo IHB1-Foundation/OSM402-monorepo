@@ -13,6 +13,8 @@ const envSchema = z.object({
     .default('true'),
   GITHUB_WEBHOOK_SECRET: z.string().default(''),
   OSM402_ACTION_SHARED_SECRET: z.string().default(''),
+  GEMINI_API_KEY: z.string().min(1, 'GEMINI_API_KEY is required'),
+  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
 });
 
 const parsed = envSchema.safeParse(process.env);

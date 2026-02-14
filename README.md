@@ -53,6 +53,7 @@ For a real online GitHub demo, run the server locally and configure a GitHub App
 - Set webhook URL to `https://<your-public-url>/api/webhooks/github` (use ngrok for local)
 - Set `.env`:
   - `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY_PEM`, `GITHUB_WEBHOOK_SECRET`
+  - `GEMINI_API_KEY` (required; AI review is mandatory)
   - `DEPLOYER_PRIVATE_KEY`, `OSM402_MAINTAINER_PRIVATE_KEY`, `OSM402_AGENT_PRIVATE_KEY`, `X402_PAYER_PRIVATE_KEY` (single-wallet mode: same key for all 4)
   - or set `GITHUB_TOKEN` as a simpler fallback
 
@@ -165,7 +166,7 @@ See [.env.example](.env.example) for the full list. Key variables:
 | `OSM402_MAINTAINER_PRIVATE_KEY` | Intent signer private key (single-wallet mode: same as deployer) |
 | `OSM402_AGENT_PRIVATE_KEY` | Cart/release signer private key (single-wallet mode: same as deployer) |
 | `X402_PAYER_PRIVATE_KEY` | x402 payer private key (single-wallet mode: same as deployer) |
-| `GEMINI_API_KEY` | Gemini API key for AI review |
+| `GEMINI_API_KEY` | Gemini API key for mandatory AI review |
 | `CHAIN_ID` | Target chain (default: 103698795 BITE V2 Sandbox 2) |
 
 ## License

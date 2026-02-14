@@ -201,19 +201,23 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
 
   const payoutResult: PayoutResult = calculatePayout(policy, diff);
 
-  // Run AI review for risk flags (if available)
+  // Run mandatory AI review for risk flags (fail-closed to HOLD on error).
   let riskFlags: string[] = [];
+  let aiReviewFailureReason: string | null = null;
   if (prRecord) {
     try {
       const { runReview } = await import('../services/reviewer.js');
       const review = await runReview(prRecord);
-      if (review) {
-        riskFlags = review.output.riskFlags;
-        console.log(`[merge] AI risk flags source=${review.source}, count=${riskFlags.length}`);
-      }
-    } catch {
-      // AI review failure should not block payout
+      riskFlags = review.output.riskFlags;
+      console.log(`[merge] AI risk flags source=${review.source}, count=${riskFlags.length}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      aiReviewFailureReason = `AI review required but unavailable: ${message}`;
+      console.error(`[merge] ${aiReviewFailureReason}`);
     }
+  } else {
+    aiReviewFailureReason = 'AI review required but unavailable: PR record not found';
+    console.error(`[merge] ${aiReviewFailureReason}`);
   }
 
   // Evaluate HOLD with both policy rules and AI risk flags
@@ -231,6 +235,11 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
       holdResult.shouldHold = true;
       holdResult.reasons.push(`Missing required checks: ${checkResult.missing.join(', ')}`);
     }
+  }
+
+  if (aiReviewFailureReason) {
+    holdResult.shouldHold = true;
+    holdResult.reasons.push(aiReviewFailureReason);
   }
 
   // Cap payout at issue bounty cap (demo: treat "USD" amount as token amount)

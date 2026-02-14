@@ -77,11 +77,11 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
 
   console.log(`[pr-event] PR ${prKey} opened by ${pr.user.login}, linked issue: ${linkedIssue ?? 'none'}, address: ${contributorAddress ?? 'none'}`);
 
-  // Run AI review (non-blocking, falls back gracefully)
+  // Run mandatory AI review and post result comment.
   const prRecord = getPr(repoKey, prNumber);
   if (prRecord) {
-    const review = await runReview(prRecord);
-    if (review) {
+    try {
+      const review = await runReview(prRecord);
       const reviewer = getReviewerStatus();
       const comment = reviewComment({
         ...review.output,
@@ -91,6 +91,14 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
       });
       await postIssueComment(repoKey, prNumber, comment);
       console.log(`[pr-event] AI review posted on ${prKey} (source=${review.source})`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[pr-event] Mandatory AI review failed on ${prKey}: ${message}`);
+      await postIssueComment(
+        repoKey,
+        prNumber,
+        `**OSM402** AI review failed and must be resolved before payout.\n\nReason: \`${message}\``
+      );
     }
   }
 

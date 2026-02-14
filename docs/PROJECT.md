@@ -56,7 +56,7 @@ OSM402 introduces a three-layer trust model:
    - The escrow contract enforces these constraints before releasing funds.
 3. **Verification is automated but bounded (CI plus policy plus AI risk flags)**
    - Payouts happen only when deterministic checks pass (required checks plus policy rules).
-   - Gemini generates structured review output to reduce human effort and optionally trigger `HOLD`.
+   - Gemini generates structured review output to reduce human effort and trigger `HOLD` when risk is detected.
    - AI does not determine payout amount (no "AI decides money" failure mode).
 
 ---
@@ -135,7 +135,7 @@ OSM402 introduces a three-layer trust model:
    - verify merge event and required checks,
    - parse `.osm402.yml` policy,
    - compute payout amount deterministically,
-   - run Gemini review (optional) for `HOLD` or proceed,
+   - run mandatory Gemini review and use risk flags for `HOLD`,
    - create cart mandate,
    - call escrow contract `release(...)`.
 5. OSM402 comments on PR: `Paid $X tx=... cartHash=... intentHash=...`.

@@ -1,14 +1,15 @@
 /**
  * PR review service that orchestrates Gemini AI review.
  * Builds review input from PR metadata, calls Gemini, returns structured output.
- * Runs under timeouts and never blocks payout pipeline indefinitely.
+ * AI review is mandatory; failures must be handled fail-closed by callers.
  */
 
 import type { ReviewInput, ReviewOutput } from '@osm402/ai';
 import type { PrRecord } from '../store/prs.js';
+import { config } from '../config.js';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const GEMINI_API_KEY = config.GEMINI_API_KEY;
+const GEMINI_MODEL = config.GEMINI_MODEL;
 const REVIEW_TIMEOUT_MS = 30_000;
 
 export interface ReviewerStatus {
@@ -19,13 +20,13 @@ export interface ReviewerStatus {
 
 export interface ReviewRunResult {
   output: ReviewOutput;
-  source: 'gemini' | 'fallback';
+  source: 'gemini';
 }
 
 export function getReviewerStatus(): ReviewerStatus {
   return {
     provider: 'gemini',
-    configured: Boolean(GEMINI_API_KEY),
+    configured: true,
     model: GEMINI_MODEL,
   };
 }
@@ -55,17 +56,12 @@ function truncatePatch(patch: string, maxChars = 4000): string {
 }
 
 /**
- * Run AI review on a PR. Returns null if unavailable or timed out.
+ * Run mandatory AI review on a PR.
+ * Throws when Gemini is unavailable, times out, or returns invalid output.
  */
-export async function runReview(pr: PrRecord, patches?: string): Promise<ReviewRunResult | null> {
-  if (!GEMINI_API_KEY) {
-    console.log('[reviewer] No GEMINI_API_KEY configured, skipping AI review');
-    return null;
-  }
-
+export async function runReview(pr: PrRecord, patches?: string): Promise<ReviewRunResult> {
   try {
-    // Dynamic import to avoid requiring @osm402/ai when not configured
-    const { reviewPR, fallbackReview } = await import('@osm402/ai');
+    const { reviewPR } = await import('@osm402/ai');
     const input = buildReviewInput(pr, patches);
     console.log(`[reviewer] Gemini review start: pr=${pr.prKey}, model=${GEMINI_MODEL}`);
 
@@ -82,11 +78,9 @@ export async function runReview(pr: PrRecord, patches?: string): Promise<ReviewR
       return { output: result, source: 'gemini' };
     }
 
-    const fallback = fallbackReview();
-    console.log(`[reviewer] Gemini unavailable: pr=${pr.prKey}, source=fallback`);
-    return { output: fallback, source: 'fallback' };
+    throw new Error('Gemini returned no valid review output');
   } catch (error) {
     console.error('[reviewer] Review failed:', error);
-    return null;
+    throw error;
   }
 }

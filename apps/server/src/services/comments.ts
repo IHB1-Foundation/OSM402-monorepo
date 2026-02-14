@@ -127,7 +127,7 @@ export function reviewComment(params: {
   confidence: number;
   aiProvider?: string;
   aiModel?: string;
-  aiSource?: 'gemini' | 'fallback';
+  aiSource?: 'gemini';
 }): string {
   const lines = [
     `### OSM402 Review (Gemini)`,
@@ -135,7 +135,7 @@ export function reviewComment(params: {
     `| Field | Value |`,
     `|-------|-------|`,
     `| AI Engine | ${(params.aiProvider || 'gemini').toUpperCase()} (${params.aiModel || 'gemini-2.0-flash'}) |`,
-    `| AI Source | ${params.aiSource === 'fallback' ? 'fallback (policy-only safe output)' : 'live Gemini API'} |`,
+    `| AI Source | live Gemini API |`,
     '',
     `**Summary:**`,
     ...params.summary.map((s) => `- ${s}`),

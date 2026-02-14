@@ -1,6 +1,5 @@
 /**
  * Gemini API client for PR review.
- * Falls back safely if Gemini returns invalid JSON.
  */
 
 import { ReviewOutputSchema, type ReviewInput, type ReviewOutput, type GeminiConfig } from './types.js';
@@ -121,16 +120,4 @@ export async function reviewPR(
   } finally {
     clearTimeout(timer);
   }
-}
-
-/**
- * Safe fallback review when Gemini is unavailable
- */
-export function fallbackReview(): ReviewOutput {
-  return {
-    summary: ['AI review unavailable — proceeding with policy-only evaluation'],
-    riskFlags: [],
-    testObservations: [],
-    confidence: 0,
-  };
 }
