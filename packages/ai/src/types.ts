@@ -8,7 +8,10 @@ export const ReviewOutputSchema = z.object({
   summary: z.array(z.string()).min(1).max(10),
   riskFlags: z.array(z.string()),
   testObservations: z.array(z.string()),
-  suggestedTier: z.string().optional(),
+  suggestedTier: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.string().optional(),
+  ),
   confidence: z.number().min(0).max(1),
 });
 
@@ -41,4 +44,7 @@ export interface GeminiConfig {
   apiKey: string;
   model?: string;
   timeoutMs?: number;
+  maxRetries?: number;
+  retryBaseDelayMs?: number;
+  retryMaxDelayMs?: number;
 }

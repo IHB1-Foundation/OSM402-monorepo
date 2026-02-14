@@ -6,6 +6,9 @@ import { ReviewOutputSchema, type ReviewInput, type ReviewOutput, type GeminiCon
 
 const DEFAULT_MODEL = 'gemini-2.0-flash';
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 2;
+const DEFAULT_RETRY_BASE_DELAY_MS = 1_000;
+const DEFAULT_RETRY_MAX_DELAY_MS = 8_000;
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
@@ -55,10 +58,32 @@ function buildPrompt(input: ReviewInput): string {
     '  "confidence": 0.0-1.0',
     '}',
     '',
+    'IMPORTANT: If you have no suggestedTier, omit the field (do not set it to null).',
     'IMPORTANT: Return ONLY valid JSON, no markdown, no code fences.',
   );
 
   return lines.join('\n');
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status === 502 || status === 503;
+}
+
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  if (error instanceof TypeError) return true; // network errors from fetch
+  return false;
+}
+
+function calcBackoffMs(attempt: number, baseMs: number, maxMs: number): number {
+  const raw = baseMs * Math.pow(2, attempt - 1);
+  const capped = Math.min(raw, maxMs);
+  const jitter = Math.floor(capped * 0.2 * Math.random());
+  return capped + jitter;
 }
 
 /**
@@ -70,61 +95,95 @@ export async function reviewPR(
 ): Promise<ReviewOutput | null> {
   const model = config.model || DEFAULT_MODEL;
   const timeout = config.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const maxRetries = Math.max(0, config.maxRetries ?? DEFAULT_MAX_RETRIES);
+  const retryBaseDelayMs = Math.max(0, config.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS);
+  const retryMaxDelayMs = Math.max(retryBaseDelayMs, config.retryMaxDelayMs ?? DEFAULT_RETRY_MAX_DELAY_MS);
   const url = `${GEMINI_API_BASE}/${model}:generateContent?key=${config.apiKey}`;
 
   const prompt = buildPrompt(input);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
+  const totalAttempts = 1 + maxRetries;
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 1024,
-          responseMimeType: 'application/json',
-        },
-      }),
-      signal: controller.signal,
-    });
+  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
 
-    if (!res.ok) {
-      console.error(`[gemini] API error: ${res.status} ${await res.text()}`);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1024,
+            responseMimeType: 'application/json',
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const body = await res.text();
+        console.error(`[gemini] API error: ${res.status} ${body.slice(0, 500)}`);
+        if (isRetryableStatus(res.status) && attempt < totalAttempts) {
+          const delay = calcBackoffMs(attempt, retryBaseDelayMs, retryMaxDelayMs);
+          console.warn(`[gemini] Retrying after ${delay}ms (attempt ${attempt + 1}/${totalAttempts})`);
+          await sleep(delay);
+          continue;
+        }
+        return null;
+      }
+
+      const data = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        console.error('[gemini] No text in response');
+        if (attempt < totalAttempts) {
+          const delay = calcBackoffMs(attempt, retryBaseDelayMs, retryMaxDelayMs);
+          console.warn(`[gemini] Retrying after ${delay}ms (attempt ${attempt + 1}/${totalAttempts})`);
+          await sleep(delay);
+          continue;
+        }
+        return null;
+      }
+
+      // Parse and validate JSON
+      const parsed = JSON.parse(text);
+      const result = ReviewOutputSchema.safeParse(parsed);
+
+      if (!result.success) {
+        console.error('[gemini] Invalid response schema:', result.error.format());
+        if (attempt < totalAttempts) {
+          const delay = calcBackoffMs(attempt, retryBaseDelayMs, retryMaxDelayMs);
+          console.warn(`[gemini] Retrying after ${delay}ms (attempt ${attempt + 1}/${totalAttempts})`);
+          await sleep(delay);
+          continue;
+        }
+        return null;
+      }
+
+      return result.data;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error(`[gemini] Request timed out after ${timeout}ms`);
+      } else {
+        console.error('[gemini] Request failed:', error);
+      }
+      if (isRetryableError(error) && attempt < totalAttempts) {
+        const delay = calcBackoffMs(attempt, retryBaseDelayMs, retryMaxDelayMs);
+        console.warn(`[gemini] Retrying after ${delay}ms (attempt ${attempt + 1}/${totalAttempts})`);
+        await sleep(delay);
+        continue;
+      }
       return null;
+    } finally {
+      clearTimeout(timer);
     }
-
-    const data = (await res.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      console.error('[gemini] No text in response');
-      return null;
-    }
-
-    // Parse and validate JSON
-    const parsed = JSON.parse(text);
-    const result = ReviewOutputSchema.safeParse(parsed);
-
-    if (!result.success) {
-      console.error('[gemini] Invalid response schema:', result.error.format());
-      return null;
-    }
-
-    return result.data;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error(`[gemini] Request timed out after ${timeout}ms`);
-    } else {
-      console.error('[gemini] Request failed:', error);
-    }
-    return null;
-  } finally {
-    clearTimeout(timer);
   }
+
+  return null;
 }
