@@ -85,7 +85,7 @@ A ticket is DONE only if:
   - Add `/api/health`
   - Add env config loader
 - Acceptance Criteria:
-  - `pnpm dev --filter server` starts and `/api/health` returns 200
+  - `pnpm --filter @osm402/server dev` starts and `/api/health` returns 200
 - Dependencies: GP-001, GP-002
 
 ### GP-005 — GitHub Action skeleton

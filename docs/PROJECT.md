@@ -526,7 +526,7 @@ osm402/
 ### 17.2 Server
 
 1. `pnpm install`
-2. `pnpm dev --filter server`
+2. `pnpm --filter @osm402/server dev`
 3. Use ngrok for webhook testing.
 
 ### 17.3 GitHub App
