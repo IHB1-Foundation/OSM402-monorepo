@@ -6,12 +6,12 @@
 #   Health Check → Fund (402 → Pay) → PR Open → Merge → Payout → Idempotency
 #
 # Usage:
-#   ./scripts/demo.sh              # default (localhost:3000)
+#   ./scripts/demo.sh              # default (localhost:3010)
 #   ./scripts/demo.sh --base-url http://my-server:4000
 #   ./scripts/demo.sh --no-color   # disable color output
 #
 # Prerequisites:
-#   - Server running (pnpm dev --filter server)
+#   - Server running (pnpm --filter @osm402/server dev)
 #   - .env configured with GITHUB_WEBHOOK_SECRET and OSM402_ACTION_SHARED_SECRET
 #   - curl, jq, openssl installed
 # =============================================================================
@@ -21,7 +21,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Config defaults (overridable via env or flags)
 # ---------------------------------------------------------------------------
-BASE_URL="${DEMO_BASE_URL:-http://localhost:3000}"
+BASE_URL="${DEMO_BASE_URL:-http://localhost:3010}"
 WEBHOOK_SECRET="${GITHUB_WEBHOOK_SECRET:-demo-secret}"
 ACTION_SECRET="${OSM402_ACTION_SHARED_SECRET:-demo-action-secret}"
 REPO_KEY="${DEMO_REPO:-demo/repo}"
@@ -30,6 +30,7 @@ PR_NUM="${DEMO_PR:-42}"
 BOUNTY_USD="${DEMO_BOUNTY:-0.1}"
 CONTRIBUTOR="${DEMO_CONTRIBUTOR:-contributor}"
 CONTRIBUTOR_ADDR="${DEMO_ADDRESS:-0x1234567890abcdef1234567890abcdef12345678}"
+PR_CHANGED_FILES_JSON="${PR_CHANGED_FILES_JSON:-[\"src/calc.js\"]}"
 NO_COLOR="${NO_COLOR:-}"
 
 # Parse flags
@@ -109,7 +110,7 @@ if [[ -z "$HEALTH" ]]; then
   fail "Server not reachable at $BASE_URL"
   echo ""
   warn "Start the server first:"
-  info "  pnpm dev --filter server"
+  info "  pnpm --filter @osm402/server dev"
   exit 1
 fi
 echo "$HEALTH" | jq .
@@ -177,7 +178,7 @@ fi
 # Step 3: PR Opened + Address Claim
 # ---------------------------------------------------------------------------
 step "Simulate PR Open + Address Claim"
-PR_OPEN_BODY="{\"action\":\"opened\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\nosm402:address $CONTRIBUTOR_ADDR\",\"merged\":false,\"merge_commit_sha\":null,\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"head$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
+PR_OPEN_BODY="{\"action\":\"opened\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\nosm402:address $CONTRIBUTOR_ADDR\",\"merged\":false,\"merge_commit_sha\":null,\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"head$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"changed_files_list\":$PR_CHANGED_FILES_JSON,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
 SIG=$(hmac_sig "$PR_OPEN_BODY")
 DELIVERY="demo-pr-open-$(date +%s)"
 
@@ -203,7 +204,7 @@ fi
 # ---------------------------------------------------------------------------
 step "Simulate Merge → Trigger Payout Pipeline"
 MERGE_SHA="abc123def456789012345678901234567890abcd"
-MERGE_BODY="{\"action\":\"closed\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\nosm402:address $CONTRIBUTOR_ADDR\",\"merged\":true,\"merge_commit_sha\":\"$MERGE_SHA\",\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"headmerge$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
+MERGE_BODY="{\"action\":\"closed\",\"number\":$PR_NUM,\"pull_request\":{\"number\":$PR_NUM,\"title\":\"Fix #$ISSUE_NUM\",\"body\":\"Closes #$ISSUE_NUM\nosm402:address $CONTRIBUTOR_ADDR\",\"merged\":true,\"merge_commit_sha\":\"$MERGE_SHA\",\"user\":{\"login\":\"$CONTRIBUTOR\"},\"head\":{\"sha\":\"headmerge$(date +%s)\"},\"base\":{\"ref\":\"main\"},\"changed_files\":2,\"changed_files_list\":$PR_CHANGED_FILES_JSON,\"additions\":30,\"deletions\":5},\"repository\":{\"full_name\":\"$REPO_KEY\",\"default_branch\":\"main\"}}"
 SIG=$(hmac_sig "$MERGE_BODY")
 MERGE_DELIVERY="demo-merge-$(date +%s)"
 

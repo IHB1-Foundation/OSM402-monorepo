@@ -6,9 +6,12 @@
   "description": "OSM402 - Fund with x402. Merge with Proof. Pay by Mandate.",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm -r --parallel dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "pnpm --filter @osm402/server dev",
     "test": "pnpm -r test",
     "demo:ap2-failure": "bash scripts/ap2-failure-mode.sh",
+    "demo:check-github-app": "node scripts/check-github-app-installation.mjs",
+    "demo:gemini-check": "node scripts/gemini-demo-check.mjs",
     "evidence:collect": "bash scripts/evidence-pack.sh",
     "lint": "eslint 'apps/**/src/**/*.ts' 'packages/**/src/**/*.ts' --no-error-on-unmatched-pattern",
     "lint:fix": "eslint . --fix",

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
-BASE_URL="${DEMO_BASE_URL:-http://localhost:3000}"
+BASE_URL="${DEMO_BASE_URL:-http://localhost:3010}"
 ACTION_SECRET="${OSM402_ACTION_SHARED_SECRET:-demo-action-secret}"
 DEMO_REPO="${DEMO_REPO:-owner/repo}"
 ISSUE_PASS="${DEMO_ISSUE_PASS:-${DEMO_ISSUE:-1}}"
