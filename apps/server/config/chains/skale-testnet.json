@@ -5,15 +5,15 @@
   "rpcUrl": "https://base-sepolia-testnet.skalenodes.com/v1/bite-v2-sandbox-2",
   "explorerUrl": "https://base-sepolia-testnet-explorer.skalenodes.com:10032",
   "contracts": {
-    "issueEscrowFactory": "",
+    "issueEscrowFactory": "0xc963e7fa131A82F520331f0712C8DA46Bc0E92b9",
     "usdc": "0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8",
     "notes": "Use existing chain USDC only for demo (decimals 6). Keep ASSET_SYMBOL=USDC, ASSET_DECIMALS=6, and ASSET_ADDRESS set to this USDC address."
   },
   "signers": {
-    "maintainer": "",
-    "agent": ""
+    "maintainer": "0xf44d918BBfF4bFeF4976c30371Cf0e938E39A876",
+    "agent": "0xf44d918BBfF4bFeF4976c30371Cf0e938E39A876"
   },
-  "deployed": false,
-  "deployedAt": null,
+  "deployed": true,
+  "deployedAt": "2026-02-14T00:18:28Z",
   "notes": "Deploy with: forge script script/DeploySKALE.s.sol --rpc-url $BITE_V2_SANDBOX_2_RPC_URL --broadcast --evm-version istanbul --legacy. Faucet: request sFUEL via SKALE Builders Telegram."
 }
