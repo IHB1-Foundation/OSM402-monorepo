@@ -82,6 +82,18 @@ All routes below require `X-OSM402-Secret` matching `OSM402_ACTION_SHARED_SECRET
 - Overall Track: Best Agentic App / Agent
 - Best Integration of AP2
 
+## GitHub + Onchain Addresses
+
+GitHub:
+
+- Repo: `https://github.com/IHB1-Foundation/OSM402-monorepo`
+- Demo repo (seeded baseline + 2 PR branches): `https://github.com/0xYatha/OSM402-demo-repo`
+
+Onchain (BITE V2 Sandbox 2, chainId `103698795`):
+
+- `IssueEscrowFactory`: `0xc963e7fa131A82F520331f0712C8DA46Bc0E92b9`
+- `USDC`: `0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8` (decimals `6`)
+
 ## Track Fit and Requirement Mapping
 
 ### Overall Track: Best Agentic App / Agent
@@ -112,14 +124,6 @@ We implement an AP2-inspired authorization pattern: **Intent (maintainer) → Ca
 - **Agentic Tool Usage on x402 (CDP Wallets)**: we demonstrate the real x402 `402` → pay → retry flow, but we do **not** integrate CDP Wallets custody/signing in this repo.
 - **Best Trading / DeFi Agent**: no trading, routing, or DeFi actions are implemented.
 - **Encrypted Agents (BITE v2 threshold encryption)**: we deploy and run on the BITE V2 Sandbox 2 chain, but we do **not** use BITE v2 threshold encryption / conditional decryption flows in this project.
-
-## Links (Fill Before Submit)
-
-- Repo: `https://github.com/IHB1-Foundation/OSM402-monorepo`
-- Demo repo (seeded baseline + 2 PR branches): `https://github.com/0xYatha/OSM402-demo-repo`
-- Demo video (2–3 min): `<ADD_LINK>`
-- Tweet (video posted): `<ADD_LINK>`
-- Slides (optional): `<ADD_LINK>`
 
 ## What Judges Should See (2–3 min)
 
