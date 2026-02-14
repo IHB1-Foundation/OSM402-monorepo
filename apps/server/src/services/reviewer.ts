@@ -23,6 +23,23 @@ export interface ReviewRunResult {
   source: 'gemini';
 }
 
+export interface ReviewOverrides {
+  prTitle?: string;
+  prBody?: string | null;
+  policyContext?: ReviewInput['policyContext'];
+}
+
+interface HoldRuleLike {
+  rule: string;
+  any?: string[];
+  gtPercent?: number;
+}
+
+interface PolicyLike {
+  requiredChecks?: string[];
+  holdIf?: HoldRuleLike[];
+}
+
 export function getReviewerStatus(): ReviewerStatus {
   return {
     provider: 'gemini',
@@ -47,6 +64,36 @@ export function buildReviewInput(pr: PrRecord, patches?: string): ReviewInput {
   };
 }
 
+export function buildPolicyContext(policy: PolicyLike): NonNullable<ReviewInput['policyContext']> {
+  const requiredChecks = policy.requiredChecks ?? [];
+  const holdRules: string[] = [];
+  const sensitivePathPatterns: string[] = [];
+
+  for (const rule of policy.holdIf ?? []) {
+    if (rule.rule === 'touchesPaths') {
+      const paths = rule.any ?? [];
+      if (paths.length > 0) {
+        holdRules.push(`touchesPaths(${paths.join(', ')})`);
+        sensitivePathPatterns.push(...paths);
+      } else {
+        holdRules.push('touchesPaths');
+      }
+      continue;
+    }
+    if (rule.rule === 'coverageDrop') {
+      holdRules.push(`coverageDrop(gtPercent=${rule.gtPercent ?? 'n/a'})`);
+      continue;
+    }
+    holdRules.push(rule.rule);
+  }
+
+  return {
+    requiredChecks,
+    holdRules,
+    sensitivePathPatterns: Array.from(new Set(sensitivePathPatterns)),
+  };
+}
+
 /**
  * Truncate patch content to stay within token limits
  */
@@ -59,10 +106,16 @@ function truncatePatch(patch: string, maxChars = 4000): string {
  * Run mandatory AI review on a PR.
  * Throws when Gemini is unavailable, times out, or returns invalid output.
  */
-export async function runReview(pr: PrRecord, patches?: string): Promise<ReviewRunResult> {
+export async function runReview(pr: PrRecord, patches?: string, overrides?: ReviewOverrides): Promise<ReviewRunResult> {
   try {
     const { reviewPR } = await import('@osm402/ai');
-    const input = buildReviewInput(pr, patches);
+    const base = buildReviewInput(pr, patches);
+    const input: ReviewInput = {
+      ...base,
+      prTitle: overrides?.prTitle ?? base.prTitle,
+      prBody: overrides?.prBody ?? base.prBody,
+      policyContext: overrides?.policyContext ?? base.policyContext,
+    };
     console.log(`[reviewer] Gemini review start: pr=${pr.prKey}, model=${GEMINI_MODEL}`);
 
     const result = await reviewPR(input, {

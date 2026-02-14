@@ -35,9 +35,16 @@ function buildPrompt(input: ReviewInput): string {
     lines.push('', 'Policy context:');
     lines.push(`  Required checks: ${input.policyContext.requiredChecks.join(', ') || 'none'}`);
     lines.push(`  Hold rules: ${input.policyContext.holdRules.join(', ') || 'none'}`);
+    lines.push(`  Sensitive paths: ${(input.policyContext.sensitivePathPatterns || []).join(', ') || 'none'}`);
   }
 
   lines.push(
+    '',
+    'Risk flag guidance:',
+    '- Use concise flags such as: touches-sensitive-path, new-dependency, coverage-drop, auth-change.',
+    '- If changed files match any sensitive path pattern, riskFlags MUST include "touches-sensitive-path".',
+    '- If lockfiles are changed, include "new-dependency".',
+    '- If no meaningful risk is present, return an empty riskFlags array.',
     '',
     'Respond with ONLY a JSON object matching this schema:',
     '{',

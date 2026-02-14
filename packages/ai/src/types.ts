@@ -30,6 +30,7 @@ export interface ReviewInput {
   policyContext?: {
     requiredChecks: string[];
     holdRules: string[];
+    sensitivePathPatterns?: string[];
   };
 }
 

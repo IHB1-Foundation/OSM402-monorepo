@@ -4,8 +4,9 @@
  */
 
 import { getPr, upsertPr, updatePr, getPrKey, type DiffSummary } from '../store/prs.js';
-import { runReview, getReviewerStatus } from '../services/reviewer.js';
+import { runReview, getReviewerStatus, buildPolicyContext } from '../services/reviewer.js';
 import { postIssueComment } from '../services/github.js';
+import { fetchPrFiles, fetchRepoFile } from '../services/github.js';
 import { reviewComment } from '../services/comments.js';
 import { extractAddressFromPrBody } from './addressClaim.js';
 
@@ -22,6 +23,7 @@ interface PrPayload {
     merged?: boolean;
     merge_commit_sha?: string | null;
     changed_files?: number;
+    changed_files_list?: string[];
     additions?: number;
     deletions?: number;
   };
@@ -29,6 +31,27 @@ interface PrPayload {
     full_name: string;
     default_branch: string;
   };
+}
+
+function normalizeChangedFilesList(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input.filter((v): v is string => typeof v === 'string' && v.length > 0);
+}
+
+async function loadPolicyContext(repoKey: string, ref: string) {
+  const { parsePolicySafe } = await import('@osm402/policy');
+  const policyYaml = await fetchRepoFile(repoKey, '.osm402.yml', ref);
+  if (!policyYaml) return undefined;
+  const parsed = parsePolicySafe(policyYaml);
+  if (!parsed) return undefined;
+  return buildPolicyContext(parsed);
+}
+
+async function postCommentOrThrow(repoKey: string, prNumber: number, body: string): Promise<void> {
+  const posted = await postIssueComment(repoKey, prNumber, body);
+  if (!posted) {
+    throw new Error(`Mandatory PR comment failed for ${repoKey}#PR${prNumber}`);
+  }
 }
 
 /**
@@ -51,12 +74,15 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
   const prKey = getPrKey(repoKey, prNumber);
   const pr = payload.pull_request;
   const linkedIssue = extractLinkedIssue(pr.body);
+  const changedFilesFromApi = await fetchPrFiles(repoKey, prNumber);
+  const changedFilesFromPayload = normalizeChangedFilesList(pr.changed_files_list);
+  const changedFiles = changedFilesFromApi.length > 0 ? changedFilesFromApi : changedFilesFromPayload;
 
   const diff: DiffSummary = {
-    filesChanged: pr.changed_files || 0,
-    additions: pr.additions || 0,
-    deletions: pr.deletions || 0,
-    changedFiles: [], // Would be populated from a separate API call
+    filesChanged: pr.changed_files ?? changedFiles.length,
+    additions: pr.additions ?? 0,
+    deletions: pr.deletions ?? 0,
+    changedFiles,
   };
 
   const contributorAddress = extractAddressFromPrBody(pr.body) ?? undefined;
@@ -81,7 +107,12 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
   const prRecord = getPr(repoKey, prNumber);
   if (prRecord) {
     try {
-      const review = await runReview(prRecord);
+      const policyContext = await loadPolicyContext(repoKey, pr.head.sha);
+      const review = await runReview(prRecord, undefined, {
+        prTitle: pr.title,
+        prBody: pr.body,
+        policyContext,
+      });
       const reviewer = getReviewerStatus();
       const comment = reviewComment({
         ...review.output,
@@ -89,16 +120,17 @@ export async function handlePrOpened(payload: PrPayload): Promise<{
         aiModel: reviewer.model,
         aiSource: review.source,
       });
-      await postIssueComment(repoKey, prNumber, comment);
+      await postCommentOrThrow(repoKey, prNumber, comment);
       console.log(`[pr-event] AI review posted on ${prKey} (source=${review.source})`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[pr-event] Mandatory AI review failed on ${prKey}: ${message}`);
-      await postIssueComment(
+      await postCommentOrThrow(
         repoKey,
         prNumber,
         `**OSM402** AI review failed and must be resolved before payout.\n\nReason: \`${message}\``
       );
+      throw error;
     }
   }
 
@@ -113,14 +145,17 @@ export async function handlePrSynchronize(payload: PrPayload): Promise<{
   const prNumber = payload.pull_request.number;
   const prKey = getPrKey(repoKey, prNumber);
   const pr = payload.pull_request;
+  const changedFilesFromApi = await fetchPrFiles(repoKey, prNumber);
+  const changedFilesFromPayload = normalizeChangedFilesList(pr.changed_files_list);
+  const changedFiles = changedFilesFromApi.length > 0 ? changedFilesFromApi : changedFilesFromPayload;
 
   const existing = getPr(repoKey, prNumber);
 
   const diff: DiffSummary = {
-    filesChanged: pr.changed_files || 0,
-    additions: pr.additions || 0,
-    deletions: pr.deletions || 0,
-    changedFiles: [],
+    filesChanged: pr.changed_files ?? changedFiles.length,
+    additions: pr.additions ?? 0,
+    deletions: pr.deletions ?? 0,
+    changedFiles,
   };
 
   if (existing) {

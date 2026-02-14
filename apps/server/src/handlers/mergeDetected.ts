@@ -28,6 +28,7 @@ interface PrClosedPayload {
     head: { sha: string };
     base: { ref: string };
     changed_files?: number;
+    changed_files_list?: string[];
     additions?: number;
     deletions?: number;
   };
@@ -35,6 +36,11 @@ interface PrClosedPayload {
     full_name: string;
     default_branch: string;
   };
+}
+
+function normalizeChangedFilesList(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input.filter((v): v is string => typeof v === 'string' && v.length > 0);
 }
 
 export interface MergeResult {
@@ -163,10 +169,13 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
   }
 
   // Fetch PR changed files from GitHub API (fallback to stored diff)
-  const changedFiles = await fetchPrFiles(repoKey, prNumber);
-  const filesChanged = changedFiles.length > 0
-    ? changedFiles
-    : prRecord?.diff?.changedFiles ?? [];
+  const changedFilesFromApi = await fetchPrFiles(repoKey, prNumber);
+  const changedFilesFromPayload = normalizeChangedFilesList(pr.changed_files_list);
+  const filesChanged = changedFilesFromApi.length > 0
+    ? changedFilesFromApi
+    : changedFilesFromPayload.length > 0
+      ? changedFilesFromPayload
+      : prRecord?.diff?.changedFiles ?? [];
 
   const diff: DiffSummary = {
     filesChanged,
@@ -175,9 +184,9 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
   };
 
   // Update PR record with fetched file list
-  if (changedFiles.length > 0 && prRecord?.diff) {
+  if (filesChanged.length > 0 && prRecord?.diff) {
     updatePr(repoKey, prNumber, {
-      diff: { ...prRecord.diff, changedFiles },
+      diff: { ...prRecord.diff, changedFiles: filesChanged },
     });
   }
 
@@ -206,8 +215,12 @@ export async function handleMergeDetected(payload: PrClosedPayload): Promise<Mer
   let aiReviewFailureReason: string | null = null;
   if (prRecord) {
     try {
-      const { runReview } = await import('../services/reviewer.js');
-      const review = await runReview(prRecord);
+      const { runReview, buildPolicyContext } = await import('../services/reviewer.js');
+      const review = await runReview(prRecord, undefined, {
+        prTitle: pr.title,
+        prBody: pr.body,
+        policyContext: buildPolicyContext(policy),
+      });
       riskFlags = review.output.riskFlags;
       console.log(`[merge] AI risk flags source=${review.source}, count=${riskFlags.length}`);
     } catch (error) {
