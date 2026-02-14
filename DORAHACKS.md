@@ -10,6 +10,73 @@ OSM402 is a GitHub-native bounty system where an agent can fund issues via x402 
 - **Deterministic payouts:** `.osm402.yml` computes amounts; AI cannot set payout amounts
 - **Safety:** spend caps, required checks, `HOLD` rules for sensitive paths; Gemini failures fail-closed into `HOLD`
 
+## System Architecture
+
+OSM402 is deliberately built around a **real payment + settlement loop** that is still auditable in GitHub.
+
+```text
+GitHub Repo (issues/PRs/comments)
+  ├─ issues.labeled ("bounty:$X") ───────────────┐
+  ├─ pull_request.opened/synchronize/closed ─────┤  (webhooks + REST reads)
+  └─ issue_comment.created (address claim) ──────┘
+                          │
+                          v
+                    OSM402 Server (Express)
+  - /api/webhooks/github  (HMAC verify + delivery dedupe)
+  - /api/fund             (x402 402 → pay → retry; escrow funding)
+  - /api/payout/execute   (manual/verification endpoint)
+  - SQLite stores         (issues, prs, payouts, webhook deliveries)
+  - Gemini reviewer       (mandatory; risk flags only)
+                          │
+         ┌────────────────┴────────────────┐
+         v                                 v
+SKALE BITE V2 Sandbox 2 (EVM)          Gemini API (HTTP)
+  - USDC (ERC20)                        - structured JSON output
+  - IssueEscrowFactory (CREATE2)        - riskFlags -> HOLD signal
+  - IssueEscrow (per issue escrow)
+```
+
+**Key building blocks (where to look):**
+
+- GitHub webhook ingestion + dedupe: `apps/server/src/routes/webhooks.ts`, `apps/server/src/store/events.ts`
+- x402 challenge + onchain verification: `apps/server/src/middleware/x402.ts`
+- Funding endpoint (escrow pre-address + 402 flow): `apps/server/src/routes/fund.ts`
+- Deterministic policy + HOLD: `packages/policy/src/*`, `.osm402.yml`
+- Mandate model (AP2-inspired EIP-712 Intent/Cart): `packages/mandates/src/*`, `apps/server/src/services/releaseConfig.ts`, `contracts/src/IssueEscrow.sol`
+- Settlement on merge + GitHub receipts: `apps/server/src/handlers/mergeDetected.ts`, `apps/server/src/services/comments.ts`
+
+## Interfaces (APIs, Webhooks, Onchain)
+
+### GitHub Webhook Endpoint
+
+- `POST /api/webhooks/github`
+  - verifies `X-Hub-Signature-256` using `GITHUB_WEBHOOK_SECRET`
+  - deduplicates deliveries via `X-GitHub-Delivery`
+  - routes:
+    - `issues.labeled` → creates a PENDING issue + posts `OSM402 — Bounty Detected`
+    - `pull_request.opened` → runs **mandatory** Gemini review + posts `OSM402 Review (Gemini)`
+    - `pull_request.closed` (merged) → computes payout, evaluates HOLD, and settles
+
+### Internal Demo APIs (Shared Secret)
+
+All routes below require `X-OSM402-Secret` matching `OSM402_ACTION_SHARED_SECRET`.
+
+- `POST /api/fund` (x402)
+  - first call without `X-Payment` returns `402` with payment requirement
+  - retry with `X-Payment` triggers onchain verification and escrow funding
+- `GET /api/fund/:owner/:repo/:issueNumber` returns issue funding status
+- `POST /api/payout/execute` triggers onchain settlement for an existing payout record
+  - returns `409` when the payout is `HOLD`
+
+### Onchain Contracts
+
+- `IssueEscrowFactory` (CREATE2):
+  - deterministic escrow address lets x402 transfer fund the escrow **before** deployment
+  - file: `contracts/src/IssueEscrowFactory.sol`
+- `IssueEscrow` (per issue):
+  - verifies Intent + Cart EIP-712 signatures and releases funds once
+  - file: `contracts/src/IssueEscrow.sol`
+
 ## Tracks
 
 - Overall Track: Best Agentic App / Agent
@@ -65,6 +132,43 @@ We implement an AP2-inspired authorization pattern: **Intent (maintainer) → Ca
 
 ## End-to-End Workflow
 
+### Sequence (Real GitHub + Real Onchain)
+
+This is the exact flow we demo (real webhooks + real USDC transfer + real escrow release).
+
+```mermaid
+sequenceDiagram
+  participant GH as GitHub
+  participant S as OSM402 Server
+  participant A as Buyer Agent (CI/CLI)
+  participant CH as SKALE (BITE V2 S2)
+  participant G as Gemini
+
+  GH->>S: issues.labeled (bounty:$X)
+  S->>GH: comment "OSM402 — Bounty Detected" (escrow address)
+
+  A->>S: POST /api/fund (no X-Payment)
+  S-->>A: 402 requirement (amount, asset, chainId, recipient=escrow)
+  A->>CH: ERC20 transfer USDC -> escrow address
+  A->>S: POST /api/fund (with X-Payment=base64 JSON)
+  S->>CH: verify tx receipt Transfer matches requirement
+  S->>CH: createEscrow(...) (deploy at same address via CREATE2)
+  S->>GH: comment "OSM402 — Funded" (intentHash + tx)
+
+  GH->>S: pull_request.opened
+  S->>G: mandatory reviewPR(...) -> riskFlags JSON
+  S->>GH: comment "OSM402 Review (Gemini)"
+
+  GH->>S: pull_request.closed (merged)
+  S->>G: mandatory reviewPR(...) -> riskFlags JSON
+  alt HOLD
+    S->>GH: comment "OSM402 — HOLD" (reasons)
+  else PASS
+    S->>CH: escrow.release(intentSig, cartSig)
+    S->>GH: comment "OSM402 — Paid" (txHash + hashes)
+  end
+```
+
 ### 1) Discover
 
 - Issues become candidates when labeled like `bounty:$0.1` (demo).
@@ -78,8 +182,8 @@ We implement an AP2-inspired authorization pattern: **Intent (maintainer) → Ca
 
 ### 3) Pay / Settle
 
-- Funding endpoint returns an x402 challenge:
-  - HTTP `402` with `requirement` (amount, asset, chainId, recipient)
+- Funding endpoint returns an x402 challenge (real flow):
+  - HTTP `402` with `requirement` (amount, asset, chainId, recipient=predicted escrow address)
   - agent pays (onchain ERC20 `Transfer`) and retries with:
     - `X-Payment: base64(JSON({ txHash, chainId, asset, amount, payer }))`
 - Payout settlement happens on merge:
@@ -90,6 +194,95 @@ We implement an AP2-inspired authorization pattern: **Intent (maintainer) → Ca
 
 - GitHub comments include evidence fields (e.g. tx hash, intent/cart hashes).
 - `scripts/evidence-pack.sh` collects a submission bundle under `artifacts/`.
+
+## Core Technical Details
+
+### x402 (HTTP 402 → Pay → Retry)
+
+**First call (no payment)**
+
+- `POST /api/fund` returns HTTP `402` and an x402 requirement payload.
+
+Example (shape):
+
+```json
+{
+  "status": 402,
+  "message": "Payment Required",
+  "x402": {
+    "version": "1",
+    "requirement": {
+      "amount": "100000",
+      "asset": "0xc4083B1E81ceb461Ccef3FDa8A9F24F0d764B6D8",
+      "chainId": 103698795,
+      "recipient": "0x<escrow_predicted_address>",
+      "description": "Fund bounty for owner/repo#1"
+    },
+    "instructions": {
+      "type": "x402",
+      "header": "X-Payment",
+      "format": "base64 JSON: { txHash, chainId, asset, amount, payer }"
+    }
+  }
+}
+```
+
+**Retry (with payment proof)**
+
+- Client pays onchain (USDC `transfer(to=recipient, amount)`).
+- Client retries with `X-Payment` header:
+
+```json
+{"txHash":"0x...","chainId":103698795,"asset":"0xc408...","amount":"100000","payer":"0x..."}
+```
+
+**Server verification rule (real-chain mode)**
+
+- fetch tx receipt from `activeChain.rpcUrl`
+- decode ERC20 `Transfer(from,to,value)` logs
+- require:
+  - `log.address == requirement.asset`
+  - `to == requirement.recipient`
+  - `sum(value) >= requirement.amount`
+
+Implementation: `apps/server/src/middleware/x402.ts`
+
+### Escrow Funding via CREATE2 (Why it works)
+
+We intentionally send the x402-funded transfer to the **predicted** escrow address. The server then deploys the escrow at the same address via `IssueEscrowFactory` (CREATE2).
+
+- `predictEscrowAddress(...)`: `apps/server/src/services/escrow.ts`
+- `IssueEscrowFactory.computeSalt(...)`: `contracts/src/IssueEscrowFactory.sol`
+
+This makes the payment requirement deterministic and auditable: the recipient is not a random address, it is the escrow address for `(repoKeyHash, issueNumber, policyHash)`.
+
+### AP2-Inspired Mandates (EIP-712 Intent + Cart)
+
+We model authorization as two signatures:
+
+1. **Intent (maintainer)**: authorizes a bounded spending policy for an issue
+2. **Cart (agent)**: authorizes a specific payment for a specific merge outcome
+
+Typed data definitions live in `packages/mandates/src/types.ts`:
+
+- Intent fields: `chainId, repoKeyHash, issueNumber, asset, cap, expiry, policyHash, nonce`
+- Cart fields: `intentHash, mergeSha, prNumber, recipient, amount, nonce`
+
+Onchain enforcement happens in `IssueEscrow.release(...)`:
+
+- rejects invalid signer / replay / mismatch (chain/repo/issue/policy/cap/expiry)
+- enforces one-time release (`paid` + nonce maps)
+- emits `Released(amount, recipient, cartHash, intentHash, mergeSha)` for auditability
+
+### Deterministic Policy + HOLD (+ Mandatory Gemini Risk Flags)
+
+- `.osm402.yml` is loaded from the repo at `mergeSha` (fallback policy is used if missing/invalid)
+  - policy parsing + payout calc: `packages/policy/src/parser.ts`, `packages/policy/src/payout.ts`
+  - HOLD rules: `packages/policy/src/hold.ts`
+- Gemini is **mandatory**:
+  - it produces structured `riskFlags` only (never payout amounts)
+  - any Gemini failure (timeout / invalid JSON / missing key) fails closed into `HOLD`
+  - PR gets an `OSM402 Review (Gemini)` comment for audit trail
 
 ## Trust + Safety
 
