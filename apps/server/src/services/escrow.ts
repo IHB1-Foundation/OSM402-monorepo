@@ -33,6 +33,17 @@ const ESCROW_ABI = parseAbi([
   'event Released(uint256 amount, address recipient, bytes32 cartHash, bytes32 intentHash, bytes32 mergeSha)',
 ]);
 
+const ESCROW_READ_ABI = parseAbi([
+  'function asset() external view returns (address)',
+  'function cap() external view returns (uint256)',
+  'function expiry() external view returns (uint256)',
+  'function policyHash() external view returns (bytes32)',
+  'function repoKeyHash() external view returns (bytes32)',
+  'function issueNumber() external view returns (uint256)',
+  'function maintainerSigner() external view returns (address)',
+  'function agentSigner() external view returns (address)',
+]);
+
 // --- Config ---
 
 const MOCK_MODE = process.env.ESCROW_MOCK_MODE !== 'false';
@@ -271,6 +282,87 @@ export async function verifyEscrowBalance(
     }) as bigint;
   } catch {
     return 0n;
+  }
+}
+
+export async function readEscrowConfig(
+  escrowAddress: Address,
+): Promise<{
+  asset: Address;
+  cap: bigint;
+  expiry: bigint;
+  policyHash: Hex;
+  repoKeyHash: Hex;
+  issueNumber: bigint;
+  maintainerSigner: Address;
+  agentSigner: Address;
+} | null> {
+  if (MOCK_MODE) return null;
+
+  try {
+    const pub = getPublicClient();
+    const asset = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'asset',
+    }) as Address;
+
+    const cap = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'cap',
+    }) as bigint;
+
+    const expiry = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'expiry',
+    }) as bigint;
+
+    const policyHash = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'policyHash',
+    }) as Hex;
+
+    const repoKeyHash = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'repoKeyHash',
+    }) as Hex;
+
+    const issueNumber = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'issueNumber',
+    }) as bigint;
+
+    const maintainerSigner = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'maintainerSigner',
+    }) as Address;
+
+    const agentSigner = await pub.readContract({
+      address: escrowAddress,
+      abi: ESCROW_READ_ABI,
+      functionName: 'agentSigner',
+    }) as Address;
+
+    return {
+      asset,
+      cap,
+      expiry,
+      policyHash,
+      repoKeyHash,
+      issueNumber,
+      maintainerSigner,
+      agentSigner,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[escrow] Failed to read escrow config: ${msg}`);
+    return null;
   }
 }
 

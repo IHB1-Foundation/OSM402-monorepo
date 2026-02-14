@@ -127,15 +127,17 @@ export function reviewComment(params: {
   confidence: number;
   aiProvider?: string;
   aiModel?: string;
-  aiSource?: 'gemini';
+  aiSource?: 'gemini' | 'mock';
 }): string {
+  const sourceLabel = params.aiSource === 'mock' ? 'mock fallback' : 'live Gemini API';
+  const titleLabel = params.aiSource === 'mock' ? 'OSM402 Review (Mock)' : 'OSM402 Review (Gemini)';
   const lines = [
-    `### OSM402 Review (Gemini)`,
+    `### ${titleLabel}`,
     '',
     `| Field | Value |`,
     `|-------|-------|`,
     `| AI Engine | ${(params.aiProvider || 'gemini').toUpperCase()} (${params.aiModel || 'gemini-2.0-flash'}) |`,
-    `| AI Source | live Gemini API |`,
+    `| AI Source | ${sourceLabel} |`,
     '',
     `**Summary:**`,
     ...params.summary.map((s) => `- ${s}`),

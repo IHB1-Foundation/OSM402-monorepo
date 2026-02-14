@@ -91,40 +91,49 @@ router.post('/', async (req: Request & { rawBody?: Buffer }, res: Response) => {
   const action = req.body?.action as string | undefined;
   const eventKey = action ? `${eventType}.${action}` : eventType;
 
-  switch (eventKey) {
-    case 'issues.labeled': {
-      const result = await handleIssueLabeled(req.body);
-      res.json({ received: true, event: eventKey, deliveryId, ...result });
-      return;
-    }
+  try {
+    switch (eventKey) {
+      case 'issues.labeled': {
+        const result = await handleIssueLabeled(req.body);
+        res.json({ received: true, event: eventKey, deliveryId, ...result });
+        return;
+      }
 
-    case 'pull_request.opened': {
-      const prResult = await handlePrOpened(req.body);
-      res.json({ received: true, event: eventKey, deliveryId, ...prResult });
-      return;
-    }
+      case 'pull_request.opened': {
+        const prResult = await handlePrOpened(req.body);
+        res.json({ received: true, event: eventKey, deliveryId, ...prResult });
+        return;
+      }
 
-    case 'pull_request.synchronize': {
-      const syncResult = await handlePrSynchronize(req.body);
-      res.json({ received: true, event: eventKey, deliveryId, ...syncResult });
-      return;
-    }
+      case 'pull_request.synchronize': {
+        const syncResult = await handlePrSynchronize(req.body);
+        res.json({ received: true, event: eventKey, deliveryId, ...syncResult });
+        return;
+      }
 
-    case 'pull_request.closed': {
-      const mergeResult = await handleMergeDetected(req.body);
-      res.json({ received: true, event: eventKey, deliveryId, ...mergeResult });
-      return;
-    }
+      case 'pull_request.closed': {
+        const mergeResult = await handleMergeDetected(req.body);
+        res.json({ received: true, event: eventKey, deliveryId, ...mergeResult });
+        return;
+      }
 
-    case 'issue_comment.created': {
-      const addrResult = await handleAddressClaim(req.body);
-      res.json({ received: true, event: eventKey, deliveryId, ...addrResult });
-      return;
-    }
+      case 'issue_comment.created': {
+        const addrResult = await handleAddressClaim(req.body);
+        res.json({ received: true, event: eventKey, deliveryId, ...addrResult });
+        return;
+      }
 
-    default:
-      res.json({ received: true, event: eventKey, deliveryId, handler: 'unhandled' });
-      return;
+      default:
+        res.json({ received: true, event: eventKey, deliveryId, handler: 'unhandled' });
+        return;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[webhooks] Handler failed for ${eventKey ?? 'unknown'}: ${message}`);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Handler failed', event: eventKey, deliveryId, message });
+    }
+    return;
   }
 });
 

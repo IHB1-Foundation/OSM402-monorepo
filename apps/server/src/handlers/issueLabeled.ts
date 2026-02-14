@@ -23,7 +23,7 @@ interface IssueLabeledPayload {
  * Parse bounty label: "bounty:$10" → 10
  */
 function parseBountyLabel(label: string): number | null {
-  const match = label.match(/^bounty:\$(\d+(?:\.\d+)?)$/);
+  const match = label.match(/^bounty:\s*\$(\d+(?:\.\d+)?)$/i);
   return match ? parseFloat(match[1]!) : null;
 }
 

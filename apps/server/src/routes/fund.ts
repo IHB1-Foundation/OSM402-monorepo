@@ -15,6 +15,7 @@ import {
   createEscrow,
   predictEscrowAddress,
   verifyEscrowBalance,
+  readEscrowConfig,
 } from '../services/escrow.js';
 import { activeChain } from '../config/chains.js';
 import { fundedComment } from '../services/comments.js';
@@ -151,7 +152,7 @@ router.post(
   },
   // After payment verified
   async (req: X402Request & { issueData?: IssueRecord }, res) => {
-    const issue = req.issueData;
+    let issue = req.issueData;
     if (!issue) {
       res.status(500).json({ error: 'Issue data not found' });
       return;
@@ -189,6 +190,21 @@ router.post(
       expiry,
       chainId: issue.chainId,
     });
+
+    if (createTxHash === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      const onchain = await readEscrowConfig(escrowAddress);
+      if (onchain) {
+        issue = upsertIssue({
+          ...issue,
+          asset: onchain.asset,
+          bountyCap: onchain.cap.toString(),
+          policyHash: onchain.policyHash,
+          expiry: Number(onchain.expiry),
+          escrowAddress,
+        });
+        (req as X402Request & { issueData: IssueRecord }).issueData = issue;
+      }
+    }
 
     let fundingTxHash: string | undefined;
     if (x402MockMode) {

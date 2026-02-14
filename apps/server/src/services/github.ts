@@ -8,11 +8,13 @@ import { getInstallationTokenForRepo } from './githubAppAuth.js';
 const GITHUB_API = 'https://api.github.com';
 
 async function getToken(repoKey: string): Promise<string | undefined> {
-  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
   if (process.env.GITHUB_APP_TOKEN) return process.env.GITHUB_APP_TOKEN;
 
   const appToken = await getInstallationTokenForRepo(repoKey);
-  return appToken ?? undefined;
+  if (appToken) return appToken;
+
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  return undefined;
 }
 
 async function headers(repoKey: string): Promise<Record<string, string>> {

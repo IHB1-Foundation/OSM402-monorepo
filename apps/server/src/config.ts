@@ -40,6 +40,17 @@ const envSchema = z.object({
   OSM402_ACTION_SHARED_SECRET: z.string().default(''),
   GEMINI_API_KEY: z.string().min(1, 'GEMINI_API_KEY is required'),
   GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  GEMINI_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(2),
+  GEMINI_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(100).max(60_000).default(1000),
+  GEMINI_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(100).max(120_000).default(8000),
+  GEMINI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(20).default(2),
+  GEMINI_REVIEW_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+  GEMINI_REVIEW_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(500).max(120_000).default(5000),
+  GEMINI_REVIEW_RETRY_MAX_DELAY_MS: z.coerce.number().int().min(1000).max(300_000).default(20000),
+  GEMINI_MOCK_MODE: z
+    .string()
+    .transform((val) => val === 'true')
+    .default('false'),
 });
 
 const parsed = envSchema.safeParse(process.env);

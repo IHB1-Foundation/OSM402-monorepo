@@ -11,6 +11,14 @@ import { config } from '../config.js';
 const GEMINI_API_KEY = config.GEMINI_API_KEY;
 const GEMINI_MODEL = config.GEMINI_MODEL;
 const REVIEW_TIMEOUT_MS = 30_000;
+const GEMINI_MAX_RETRIES = config.GEMINI_MAX_RETRIES;
+const GEMINI_RETRY_BASE_DELAY_MS = config.GEMINI_RETRY_BASE_DELAY_MS;
+const GEMINI_RETRY_MAX_DELAY_MS = config.GEMINI_RETRY_MAX_DELAY_MS;
+const GEMINI_MAX_CONCURRENCY = config.GEMINI_MAX_CONCURRENCY;
+const GEMINI_MOCK_MODE = config.GEMINI_MOCK_MODE;
+const GEMINI_REVIEW_MAX_ATTEMPTS = config.GEMINI_REVIEW_MAX_ATTEMPTS;
+const GEMINI_REVIEW_RETRY_BASE_DELAY_MS = config.GEMINI_REVIEW_RETRY_BASE_DELAY_MS;
+const GEMINI_REVIEW_RETRY_MAX_DELAY_MS = config.GEMINI_REVIEW_RETRY_MAX_DELAY_MS;
 
 export interface ReviewerStatus {
   provider: 'gemini';
@@ -20,7 +28,17 @@ export interface ReviewerStatus {
 
 export interface ReviewRunResult {
   output: ReviewOutput;
-  source: 'gemini';
+  source: 'gemini' | 'mock';
+}
+
+export class GeminiReviewError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable = true) {
+    super(message);
+    this.name = 'GeminiReviewError';
+    this.retryable = retryable;
+  }
 }
 
 export interface ReviewOverrides {
@@ -38,6 +56,48 @@ interface HoldRuleLike {
 interface PolicyLike {
   requiredChecks?: string[];
   holdIf?: HoldRuleLike[];
+}
+
+class Semaphore {
+  private available: number;
+  private queue: Array<() => void> = [];
+
+  constructor(max: number) {
+    this.available = Math.max(1, max);
+  }
+
+  async acquire(): Promise<() => void> {
+    if (this.available > 0) {
+      this.available -= 1;
+      return () => this.release();
+    }
+
+    return new Promise((resolve) => {
+      this.queue.push(() => {
+        this.available -= 1;
+        resolve(() => this.release());
+      });
+    });
+  }
+
+  private release(): void {
+    this.available += 1;
+    const next = this.queue.shift();
+    if (next) next();
+  }
+}
+
+const reviewSemaphore = new Semaphore(GEMINI_MAX_CONCURRENCY);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function calcBackoffMs(attempt: number, baseMs: number, maxMs: number): number {
+  const raw = baseMs * Math.pow(2, attempt - 1);
+  const capped = Math.min(raw, maxMs);
+  const jitter = Math.floor(capped * 0.2 * Math.random());
+  return capped + jitter;
 }
 
 export function getReviewerStatus(): ReviewerStatus {
@@ -102,38 +162,85 @@ function truncatePatch(patch: string, maxChars = 4000): string {
   return patch.slice(0, maxChars) + '\n... (truncated)';
 }
 
+function buildMockReview(pr: PrRecord, overrides?: ReviewOverrides): ReviewOutput {
+  const title = overrides?.prTitle ?? pr.prKey;
+  const files = pr.diff?.changedFiles ?? [];
+  const summary: string[] = [
+    'Mock review generated (Gemini disabled)',
+    `PR: ${title}`,
+    `Files changed: ${files.length}`,
+  ];
+
+  return {
+    summary,
+    riskFlags: [],
+    testObservations: [],
+    confidence: 0.5,
+  };
+}
+
 /**
  * Run mandatory AI review on a PR.
  * Throws when Gemini is unavailable, times out, or returns invalid output.
  */
 export async function runReview(pr: PrRecord, patches?: string, overrides?: ReviewOverrides): Promise<ReviewRunResult> {
-  try {
-    const { reviewPR } = await import('@osm402/ai');
-    const base = buildReviewInput(pr, patches);
-    const input: ReviewInput = {
-      ...base,
-      prTitle: overrides?.prTitle ?? base.prTitle,
-      prBody: overrides?.prBody ?? base.prBody,
-      policyContext: overrides?.policyContext ?? base.policyContext,
-    };
-    console.log(`[reviewer] Gemini review start: pr=${pr.prKey}, model=${GEMINI_MODEL}`);
-
-    const result = await reviewPR(input, {
-      apiKey: GEMINI_API_KEY,
-      model: GEMINI_MODEL,
-      timeoutMs: REVIEW_TIMEOUT_MS,
-    });
-
-    if (result) {
-      console.log(
-        `[reviewer] Gemini review done: pr=${pr.prKey}, source=gemini, riskFlags=${result.riskFlags.length}, confidence=${result.confidence.toFixed(2)}`
-      );
-      return { output: result, source: 'gemini' };
-    }
-
-    throw new Error('Gemini returned no valid review output');
-  } catch (error) {
-    console.error('[reviewer] Review failed:', error);
-    throw error;
+  if (GEMINI_MOCK_MODE) {
+    return { output: buildMockReview(pr, overrides), source: 'mock' };
   }
+
+  const { reviewPR } = await import('@osm402/ai');
+  const base = buildReviewInput(pr, patches);
+  const input: ReviewInput = {
+    ...base,
+    prTitle: overrides?.prTitle ?? base.prTitle,
+    prBody: overrides?.prBody ?? base.prBody,
+    policyContext: overrides?.policyContext ?? base.policyContext,
+  };
+
+  for (let attempt = 1; attempt <= GEMINI_REVIEW_MAX_ATTEMPTS; attempt++) {
+    try {
+      console.log(
+        `[reviewer] Gemini review start: pr=${pr.prKey}, model=${GEMINI_MODEL}, attempt=${attempt}/${GEMINI_REVIEW_MAX_ATTEMPTS}`
+      );
+
+      const release = await reviewSemaphore.acquire();
+      const result = await (async () => {
+        try {
+          return await reviewPR(input, {
+            apiKey: GEMINI_API_KEY,
+            model: GEMINI_MODEL,
+            timeoutMs: REVIEW_TIMEOUT_MS,
+            maxRetries: GEMINI_MAX_RETRIES,
+            retryBaseDelayMs: GEMINI_RETRY_BASE_DELAY_MS,
+            retryMaxDelayMs: GEMINI_RETRY_MAX_DELAY_MS,
+          });
+        } finally {
+          release();
+        }
+      })();
+
+      if (result) {
+        console.log(
+          `[reviewer] Gemini review done: pr=${pr.prKey}, source=gemini, riskFlags=${result.riskFlags.length}, confidence=${result.confidence.toFixed(2)}`
+        );
+        return { output: result, source: 'gemini' };
+      }
+
+      throw new GeminiReviewError('Gemini returned no valid review output', true);
+    } catch (error) {
+      const retryable = error instanceof GeminiReviewError ? error.retryable : false;
+      console.error('[reviewer] Review failed:', error);
+
+      if (retryable && attempt < GEMINI_REVIEW_MAX_ATTEMPTS) {
+        const delay = calcBackoffMs(attempt, GEMINI_REVIEW_RETRY_BASE_DELAY_MS, GEMINI_REVIEW_RETRY_MAX_DELAY_MS);
+        console.warn(`[reviewer] Retrying after ${delay}ms (attempt ${attempt + 1}/${GEMINI_REVIEW_MAX_ATTEMPTS})`);
+        await sleep(delay);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new GeminiReviewError('Gemini review failed after max attempts', false);
 }
